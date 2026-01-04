@@ -1,0 +1,17 @@
+# ---------------------------------
+# Node.js Dependencies
+# ---------------------------------
+/node_modules
+
+# ---------------------------------
+# Secrets and Environment Variables
+# ---------------------------------
+# NEVER commit your API key or secrets
+.env
+
+# ---------------------------------
+# Logs and Debugging
+# ---------------------------------
+npm-debug.log*
+.DS_Store
+package-lock.json

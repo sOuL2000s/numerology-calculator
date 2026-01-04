@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numerology & Gemini AI</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load marked.js for Markdown Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>Small AI Numerology Calculator</h1>
+        <p>Powered by Gemini. All results render beautiful Markdown.</p>
+    </header>
+
+    <main>
+        <!-- Numerology Input Section -->
+        <section id="numerology-app">
+            <h2>Calculate Your Destiny</h2>
+            <div class="input-group">
+                <label for="full-name">Full Name (at birth):</label>
+                <input type="text" id="full-name" placeholder="John Michael Doe">
+            </div>
+            <div class="input-group">
+                <label for="dob">Date of Birth:</label>
+                <input type="date" id="dob">
+            </div>
+            <button onclick="calculateNumerology()">Get Analysis</button>
+            <p id="calc-status" class="status-message"></p>
+            
+            <!-- Numerology Output Area (Renders Markdown) -->
+            <div id="numerology-output" class="markdown-container">
+                <p>Results will appear here, fully formatted by Gemini's markdown response.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Floating AI Chatbot Container -->
+    <div id="chatbot-container">
+        <div id="chat-header" onclick="toggleChat()">
+            🤖 Ask Gemini Anything 💬
+        </div>
+        <div id="chat-window" class="closed">
+            <div id="chat-messages">
+                <!-- Initial Welcome Message (rendered via JS/Markdown) -->
+            </div>
+            <div id="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Ask a question..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Chat History ---
+        let chatHistory = [];
+
+        // Function to safely sanitize and render Markdown
+        const renderMarkdown = (markdownText) => {
+            // marked.js converts the markdown string to an HTML string
+            // We use DOMPurify (if available) or basic sanitation to prevent XSS. 
+            // For simplicity in this demo, we rely on marked's default sanitation, 
+            // but in production, DOMPurify is highly recommended.
+            return marked.parse(markdownText);
+        };
+
+        // --- Numerology Logic ---
+        async function calculateNumerology() {
+            const name = document.getElementById('full-name').value;
+            const dob = document.getElementById('dob').value;
+            const outputDiv = document.getElementById('numerology-output');
+            const statusDiv = document.getElementById('calc-status');
+
+            if (!name || !dob) {
+                statusDiv.textContent = "Please enter both name and date of birth.";
+                return;
+            }
+
+            statusDiv.textContent = "Analyzing data with Gemini...";
+            outputDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch('/api/numerology', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, dob })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    statusDiv.textContent = `Error: ${data.error}`;
+                    outputDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                    return;
+                }
+
+                statusDiv.textContent = "Analysis Complete!";
+                // RENDER THE MARKDOWN RESPONSE
+                outputDiv.innerHTML = renderMarkdown(data.result);
+
+            } catch (error) {
+                statusDiv.textContent = "A network error occurred.";
+                outputDiv.innerHTML = `<p style="color: red;">Network Error. Check console.</p>`;
+                console.error('Calculation Error:', error);
+            }
+        }
+
+
+        // --- Chatbot Logic ---
+
+        function toggleChat() {
+            const chatWindow = document.getElementById('chat-window');
+            chatWindow.classList.toggle('closed');
+            // If opening for the first time, add the welcome message
+            if (chatHistory.length === 0 && !chatWindow.classList.contains('closed')) {
+                addMessageToChat(
+                    "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!",
+                    'model'
+                );
+                chatHistory.push({ sender: 'model', text: "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!" });
+            }
+        }
+        
+        function addMessageToChat(text, sender) {
+            const messagesDiv = document.getElementById('chat-messages');
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message', sender);
+            
+            // RENDER MARKDOWN FOR EVERY CHAT MESSAGE
+            messageElement.innerHTML = renderMarkdown(text); 
+            
+            messagesDiv.appendChild(messageElement);
+            // Scroll to the bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const inputField = document.getElementById('chat-input');
+            const messageText = inputField.value.trim();
+
+            if (!messageText) return;
+
+            // 1. Add user message to history and UI
+            addMessageToChat(messageText, 'user');
+            chatHistory.push({ sender: 'user', text: messageText });
+            inputField.value = '';
+
+            // 2. Add loading indicator
+            const messagesDiv = document.getElementById('chat-messages');
+            const loadingElement = document.createElement('div');
+            loadingElement.classList.add('chat-message', 'model', 'loading');
+            loadingElement.innerHTML = '...';
+            messagesDiv.appendChild(loadingElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        currentMessage: messageText, 
+                        history: chatHistory.slice(0, -1) // Send all history EXCEPT the current user message (which is included separately)
+                    })
+                });
+
+                const data = await response.json();
+                
+                // 3. Remove loading indicator
+                messagesDiv.removeChild(loadingElement);
+
+                if (data.error) {
+                    addMessageToChat(`[Error] ${data.error}`, 'model');
+                    return;
+                }
+
+                // 4. Add Gemini response (fully rendered Markdown)
+                addMessageToChat(data.text, 'model');
+                chatHistory.push({ sender: 'model', text: data.text });
+
+            } catch (error) {
+                console.error('Chat API Error:', error);
+                messagesDiv.removeChild(loadingElement);
+                addMessageToChat("Sorry, I hit a server error.", 'model');
+            }
+        }
+    </script>
+</body>
+</html>

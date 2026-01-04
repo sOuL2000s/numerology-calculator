@@ -25,6 +25,12 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'))); 
 app.use(express.static(__dirname)); // Serve files from the root directory
 
+// --- FIX: Explicit Route for Root Path ---
+app.get('/', (req, res) => {
+    // __dirname was defined at the top of server.js using fileURLToPath/path.dirname
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // --- API Endpoints ---
 
 // 1. Numerology Calculation Endpoint

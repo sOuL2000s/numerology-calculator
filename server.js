@@ -16,8 +16,8 @@ const __dirname = path.dirname(__filename);
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const numerologyModel = "gemini-2.5-flash"; 
-const chatModel = "gemini-2.5-flash"; 
+const numerologyModel = "gemini-2.5-flash-preview-09-2025"; 
+const chatModel = "gemini-2.5-flash-preview-09-2025"; 
 
 // Middleware
 app.use(express.json());

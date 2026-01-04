@@ -10,20 +10,21 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Get directory name for serving static files
+// Setup paths for serving
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const numerologyModel = "gemini-2.5-flash-preview-09-2025"; 
-const chatModel = "gemini-2.5-flash-preview-09-2025"; 
+const PUBLIC_PATH = path.join(__dirname, 'public'); // Define the public path
 
 // Middleware
 app.use(express.json());
-// Serve static files (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname, 'public'))); 
-app.use(express.static(__dirname)); // Serve files from the root directory
+
+// 1. Static File Serving: Point ALL static asset requests to the /public folder
+app.use(express.static(PUBLIC_PATH)); // <-- FIX 1: Point to /public
+
+// 2. Explicit Root Route: Serve index.html from the /public folder
+app.get('/', (req, res) => {
+    res.sendFile(path.join(PUBLIC_PATH, 'index.html')); // <-- FIX 2: Point to /public/index.html
+});
 
 // --- FIX: Explicit Route for Root Path ---
 app.get('/', (req, res) => {

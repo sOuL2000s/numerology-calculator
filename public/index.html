@@ -16,13 +16,21 @@
     
     <!-- Load marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Load html2pdf.js for PDF Export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <!-- STEP 7.1: Load pdfmake for professional PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.9/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.9/vfs_fonts.js"></script>
+    
+    <!-- STEP 1.1: Load Flatpickr CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
     
+    <!-- STEP 5.1: Cosmic Canvas Background -->
+    <canvas id="cosmos"></canvas>
+    
     <!-- 🗂️ Destiny Vault Trigger -->
-    <!-- The vault trigger must be visible outside the main flow to open the vault -->
     <button id="vault-trigger" onclick="toggleVault()">
         <i class="fas fa-box-open"></i> My Destiny Vault
     </button>
@@ -52,7 +60,8 @@
                     <label for="dob">Date of Birth:</label>
                     <div class="input-field-wrapper">
                         <i class="input-icon fas fa-calendar-alt"></i>
-                        <input type="date" id="dob">
+                        <!-- STEP 1.2: Updated DOB input for Flatpickr -->
+                        <input id="dob" placeholder="Select Date of Birth" autocomplete="off">
                     </div>
                     <p class="helper-text">Your exact date determines your Life Path number.</p>
                 </div>
@@ -64,7 +73,8 @@
             <!-- Output Wrapper starts hidden -->
             <div id="numerology-output-wrapper" class="hidden">
                 <div class="export-controls">
-                    <button class="export-button" onclick="exportReport('numerology')">Export as PDF</button>
+                    <!-- Updated export button to call the new PDF function -->
+                    <button class="export-button" id="export-pdf-btn" onclick="exportNumerologyReport()">Export as PDF</button>
                     <button class="export-button secondary-button" onclick="copyReportText('numerology')">Copy Text</button>
                 </div>
                 <div id="numerology-output" class="markdown-container">
@@ -93,6 +103,7 @@
             <!-- Output Wrapper starts hidden -->
             <div id="word-output-wrapper" class="hidden">
                 <div class="export-controls">
+                    <!-- NOTE: Legacy export remains but will show an alert since html2pdf was removed -->
                     <button class="export-button" onclick="exportReport('word')">Export as PDF</button>
                     <button class="export-button secondary-button" onclick="copyReportText('word')">Copy Text</button>
                 </div>
@@ -103,11 +114,10 @@
         </section>
     </main>
 
-    <!-- 🗂️ Destiny Vault Side Panel (Now a full-screen takeover component) -->
+    <!-- 🗂️ Destiny Vault Side Panel -->
     <div id="destiny-vault" class="closed">
         <div class="vault-header">
             <h3><i class="fas fa-scroll"></i> My Destiny Vault</h3>
-            <!-- Use a dedicated 'Close' action -->
             <button id="vault-close" onclick="toggleVault()"><i class="fas fa-times"></i></button>
         </div>
         <div id="vault-list">
@@ -141,33 +151,169 @@
         let chatHistory = [];
         const VAULT_KEY = 'destinyVaultProfiles';
 
+        // --- STEP 5.2: Cosmic Animation Script ---
+        const canvas = document.getElementById("cosmos");
+        const ctx = canvas.getContext("2d");
+
+        // Set initial size
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+             canvas.width = window.innerWidth;
+             canvas.height = window.innerHeight;
+        });
+
+        const stars = Array.from({ length: 150 }, () => ({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.5,
+          vx: (Math.random() - 0.5) * 0.005, 
+          vy: 0.05 + Math.random() * 0.1
+        }));
+
+        function animateCosmos() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          stars.forEach(s => {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fill();
+            
+            s.x += s.vx;
+            s.y += s.vy;
+            
+            if (s.y > canvas.height) s.y = 0;
+            if (s.x > canvas.width) s.x = 0;
+            if (s.x < 0) s.x = canvas.width;
+          });
+          requestAnimationFrame(animateCosmos);
+        }
+        
+        // --- Flatpickr Initialization (STEP 1.3) ---
+        flatpickr("#dob", {
+            dateFormat: "Y-m-d", 
+            maxDate: "today",
+            yearSelectorType: "dropdown",
+        });
+        
         // --- Utility Functions ---
 
-        // Function to safely sanitize and render Markdown
-        const renderMarkdown = (markdownText) => {
-            // Note: Marked automatically handles basic XSS sanitation.
-            return marked.parse(markdownText);
+        // NEW UTILITY: Function to convert markdown string content to plain text runs
+        // This function handles simple markdown elements (bolding, lists) 
+        // using pdfmake's 'text' array structure, ensuring dark, readable text.
+        function formatReportContent(markdownText, baseColor = '#222222') {
+            if (!markdownText) return [{ text: 'Content data is missing.', color: '#888', margin: [0, 5, 0, 0] }];
+
+            const elements = [];
+            const lines = markdownText.split('\n');
+            let currentList = null;
+            let listType = null;
+            let listMargin = [0, 2, 0, 0];
+            
+            // Function to process a single line for inline bolding
+            const processLine = (line) => {
+                const textRuns = [];
+                // Split by bold markers (**)
+                const parts = line.split(/(\*\*.*?\*\*)/g).filter(p => p.length > 0); 
+
+                parts.forEach(part => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                        // Bold text for keywords
+                        textRuns.push({ text: part.substring(2, part.length - 2), bold: true, color: '#333333' });
+                    } else {
+                        // Standard body text
+                        textRuns.push({ text: part, color: baseColor });
+                    }
+                });
+                return textRuns;
+            };
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) {
+                    currentList = null; // Break list context on empty line
+                    listType = null;
+                    continue;
+                }
+                
+                // Handle Lists (* or - or 1.)
+                if (line.startsWith('* ') || line.startsWith('- ')) {
+                    if (!currentList || listType !== 'ul') {
+                        currentList = { ul: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        elements.push(currentList);
+                        listType = 'ul';
+                    }
+                    currentList.ul.push({ text: processLine(line.substring(2).trim()), margin: listMargin });
+                } else if (line.match(/^\d+\. /)) {
+                    if (!currentList || listType !== 'ol') {
+                        currentList = { ol: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        elements.push(currentList);
+                        listType = 'ol';
+                    }
+                    currentList.ol.push({ text: processLine(line.substring(line.indexOf('.') + 1).trim()), margin: listMargin });
+                } else {
+                    currentList = null;
+                    listType = null;
+                    
+                    // Plain paragraph (use the text array structure for formatting consistency)
+                    elements.push({ text: processLine(line), margin: [0, 5, 0, 0], lineHeight: 1.4 });
+                }
+            }
+            return elements;
+        }
+
+        // Function to safely sanitize and render Markdown (handles structured input)
+        const renderStructuredReport = (structuredData) => {
+            if (!structuredData) return '';
+            
+            // Manually build the report structure using markdown strings from the JSON
+            let markdown = '';
+            
+            // CRITICAL FIX: Use nullish coalescing (?? '') to prevent "undefined" injection
+            markdown += `# ${structuredData.title ?? 'Untitled Destiny Profile'}\n\n`;
+            
+            markdown += `## 1. Core Life Path Summary (Chaldean Numerology)\n`;
+            markdown += structuredData.lifePathSummary ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 2. Vedic Planetary Fusion (Graha Drishti)\n`;
+            markdown += structuredData.vedicFusion ?? 'Content not generated. Please try again.';
+
+            markdown += `\n## 3. Destiny Number (Name Expression)\n`;
+            markdown += structuredData.destinyExplanation ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 4. Strengths, Challenges & Remedial Actions\n`;
+            
+            markdown += `\n### 💡 Key Strengths\n`;
+            markdown += structuredData.strengths ?? '* Strengths section failed to load.';
+
+            markdown += `\n### 🚧 Potential Challenges\n`;
+            markdown += structuredData.challenges ?? '* Challenges section failed to load.';
+            
+            markdown += `\n### 🕉️ Remedial Suggestions (Upayes)\n`;
+            markdown += structuredData.remedies ?? '* Remedial suggestions failed to load.';
+            
+            // Render the final Markdown string to HTML
+            return marked.parse(markdown);
         };
         
-        // Generates a simple unique ID (for vault tracking)
         const generateId = () => Math.random().toString(36).substring(2, 9);
         
-        // --- Destiny Vault (Local Storage) Logic ---
+        // --- Destiny Vault (Local Storage) Logic - Updated for JSON Structure ---
         
         function loadVault() {
             try {
-                // Ensure array is returned, even if storage is empty or corrupted
                 const profiles = JSON.parse(localStorage.getItem(VAULT_KEY) || '[]');
-                // Sort by creation date descending
                 return profiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             } catch (e) {
-                console.error("Error loading vault from local storage. Storage might be corrupt. Clearing vault.", e);
-                // Clear potentially corrupted storage to prevent repeated errors
+                console.error("Error loading vault. Clearing corrupt storage.", e);
                 localStorage.removeItem(VAULT_KEY); 
                 return [];
             }
         }
 
+        // STEP 4.1: Modified save function to handle structured reports
         function saveProfileToVault(profileData) {
             const profiles = loadVault();
             const newProfile = { 
@@ -176,11 +322,13 @@
                 createdAt: new Date().toISOString()
             };
             
-            profiles.unshift(newProfile);
-            // Limit the vault size (e.g., to 20 profiles)
-            localStorage.setItem(VAULT_KEY, JSON.stringify(profiles.slice(0, 20)));
+            if (!newProfile.result || !newProfile.result.title) {
+                console.error("Attempted to save corrupted or incomplete structured profile data.");
+                return;
+            }
             
-            // Re-render the UI immediately
+            profiles.unshift(newProfile);
+            localStorage.setItem(VAULT_KEY, JSON.stringify(profiles.slice(0, 20)));
             renderVault();
         }
 
@@ -194,31 +342,18 @@
             let corruptionDetected = false;
 
             profiles.forEach(profile => {
-                // Critical Check: Ensure required metadata is present
-                if (!profile.metadata || !profile.metadata.name || !profile.result) {
-                    console.warn('Skipping and removing corrupted vault profile (Missing metadata or result):', profile);
+                if (!profile.metadata || !profile.metadata.name || !profile.result || typeof profile.result !== 'object' || !profile.result.title) {
                     corruptionDetected = true;
                     return; 
                 }
                 
-                validProfiles.push(profile); // Add to the list of valid profiles
+                validProfiles.push(profile);
                 
                 const date = new Date(profile.createdAt).toLocaleDateString();
                 const card = document.createElement('div');
                 card.classList.add('vault-profile-card');
                 
-                // Get the main title from the generated report if possible (first H1)
-                const tempDiv = document.createElement('div');
-                try {
-                    // Sanitize the result before parsing
-                    tempDiv.innerHTML = renderMarkdown(profile.result.substring(0, 500)); 
-                } catch (e) {
-                    console.error("Error rendering markdown for vault title extraction:", e);
-                    corruptionDetected = true;
-                    return;
-                }
-                
-                const reportTitle = tempDiv.querySelector('h1') ? tempDiv.querySelector('h1').textContent : profile.metadata.archetype;
+                const reportTitle = profile.result.title || "Untitled Report";
                 
                 card.innerHTML = `
                     <h4>${reportTitle}</h4>
@@ -233,13 +368,10 @@
                 renderedCount++;
             });
             
-            // FIX: If corruption was detected, rewrite local storage only with valid profiles
             if (corruptionDetected) {
-                console.log("Auto-cleaning vault: Rewriting Local Storage with valid profiles only.");
                 localStorage.setItem(VAULT_KEY, JSON.stringify(validProfiles));
             }
 
-            // Display empty message if no profiles were successfully rendered
             if (renderedCount === 0) {
                  listDiv.innerHTML = '<p class="vault-empty-message">Your Destiny Vault is empty. Generate a profile to save it!</p>';
             }
@@ -250,27 +382,20 @@
             const profile = profiles.find(p => p.id === id);
 
             if (profile) {
-                // Populate the input fields (Name and DOB)
                 document.getElementById('full-name').value = profile.metadata.name;
-                // Convert stored ISO date to input[type="date"] format (YYYY-MM-DD)
-                const isoDate = new Date(profile.metadata.dob).toISOString().split('T')[0];
-                document.getElementById('dob').value = isoDate;
+                document.getElementById('dob').value = profile.metadata.dob; 
                 
-                // Render the report content
                 const outputWrapper = document.getElementById('numerology-output-wrapper');
                 const outputDiv = document.getElementById('numerology-output');
                 const statusDiv = document.getElementById('calc-status');
                 
-                outputDiv.innerHTML = renderMarkdown(profile.result);
+                outputDiv.innerHTML = renderStructuredReport(profile.result);
                 outputWrapper.classList.remove('hidden');
                 
                 statusDiv.textContent = `Profile for ${profile.metadata.name} loaded from Vault.`;
                 statusDiv.style.color = 'var(--secondary-color)';
                 
-                // Close the vault
-                toggleVault(false); // Explicitly close the vault
-                
-                // Scroll to the output section
+                toggleVault(false);
                 document.getElementById('numerology-output-wrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
             } else {
@@ -282,23 +407,20 @@
         function deleteProfileFromVault(id) {
             if (confirm("Are you sure you want to permanently delete this profile?")) {
                 let profiles = loadVault();
-                // Filter out the deleted ID
                 profiles = profiles.filter(p => p.id !== id);
                 localStorage.setItem(VAULT_KEY, JSON.stringify(profiles));
-                renderVault(); // Update UI
+                renderVault();
             }
         }
 
         function clearVault() {
             if (confirm("Are you sure you want to delete ALL profiles from your Destiny Vault? This cannot be undone.")) {
-                // Critical step: Remove all data
                 localStorage.removeItem(VAULT_KEY); 
-                renderVault(); // Update UI to empty state
+                renderVault();
                 alert("Destiny Vault cleared.");
             }
         }
-
-        // State Management for the Vault (Fixing the UI Takeover Issue)
+        
         function toggleVault(shouldOpen) {
             const vault = document.getElementById('destiny-vault');
             const body = document.body;
@@ -307,7 +429,7 @@
 
             if (isOpen) {
                 vault.classList.add('open');
-                body.classList.add('vault-open'); // New class for state management
+                body.classList.add('vault-open');
                 renderVault();
             } else {
                 vault.classList.remove('open');
@@ -315,20 +437,20 @@
             }
         }
 
-        // Initialize vault rendering on page load
+        // Initialize vault rendering and cosmos animation
         document.addEventListener('DOMContentLoaded', () => {
              renderVault();
-             // Pre-render the chatbot message, but keep it closed
+             animateCosmos(); // Start the animation
              if (chatHistory.length === 0) {
                  chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
              }
         });
         
         
-        // --- Core Calculation Logic (Includes Save Call) ---
+        // --- Core Calculation Logic (Updated for Structured Response) ---
         async function calculateNumerologyProfile() {
             const name = document.getElementById('full-name').value;
-            const dob = document.getElementById('dob').value;
+            const dob = document.getElementById('dob').value; 
             const outputWrapper = document.getElementById('numerology-output-wrapper');
             const outputDiv = document.getElementById('numerology-output');
             const statusDiv = document.getElementById('calc-status');
@@ -342,12 +464,11 @@
                 return;
             }
 
-            // Start Loading State UI
             statusDiv.textContent = "Analyzing your Destiny Matrix...";
             statusDiv.style.color = 'var(--secondary-color)';
             outputDiv.innerHTML = '<p class="loading-animation">Calculating core vibration and planetary influences...</p>';
             calcButton.classList.add('button-loading');
-            calcButton.innerHTML = '<span>Calculating Destiny...</span>'; // Set loading text
+            calcButton.innerHTML = '<span>Calculating Destiny...</span>';
             calcButton.disabled = true;
 
             try {
@@ -359,16 +480,29 @@
 
                 const data = await response.json();
 
-                if (data.error || !response.ok) {
-                    statusDiv.textContent = `Error: Profile generation failed.`;
+                if (!response.ok) {
+                    // FIX 1: Ensure we catch non-200 responses (like the 500 sent by server.js on API failure)
+                    const errorMessage = data.error || `Server responded with status ${response.status}.`;
+                    statusDiv.textContent = `Critical Error: ${errorMessage}`;
                     statusDiv.style.color = 'var(--accent-gold)'; 
-                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Profile generation failed: ${data.error || response.statusText}</p>`;
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Error during processing. This is often due to an overloaded AI model (Code 503) or a misconfigured API key.</p>`;
                     return;
                 }
-
+                
+                // FIX 2: Check for essential content validity (i.e., did the AI actually return the expected structured data?)
+                if (!data.result || typeof data.result !== 'object' || !data.result.title) {
+                    statusDiv.textContent = "Error: AI generation failed to return a structured profile. Try again.";
+                    statusDiv.style.color = 'var(--accent-gold)'; 
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">The AI failed to generate the structured report, possibly due to a temporary service issue. Please wait a moment and try recalculating.</p>`;
+                    return;
+                }
+                
+                // SUCCESS PATH
                 statusDiv.textContent = "Profile Generated Successfully. Report saved to your Destiny Vault.";
                 statusDiv.style.color = 'var(--secondary-color)';
-                outputDiv.innerHTML = renderMarkdown(data.result);
+                
+                // Use the new structured renderer
+                outputDiv.innerHTML = renderStructuredReport(data.result);
                 outputWrapper.classList.remove('hidden'); 
                 
                 // CRITICAL: Save the generated profile to the Destiny Vault immediately
@@ -376,19 +510,19 @@
 
 
             } catch (error) {
-                statusDiv.textContent = "A network error occurred. Check your connection.";
+                statusDiv.textContent = "A network error occurred or the AI failed to return structured data.";
                 statusDiv.style.color = 'var(--accent-gold)';
-                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error: ${error.message}</p>`;
+                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network/Parsing Error: ${error.message}</p>`;
                 console.error('Calculation Error:', error);
             } finally {
                 // End Loading State UI
                 calcButton.classList.remove('button-loading');
-                calcButton.innerHTML = 'Reveal My Numbers ✨'; // Reset button text
+                calcButton.innerHTML = 'Reveal My Numbers ✨';
                 calcButton.disabled = false;
             }
         }
         
-        // --- Word Analysis (Updated for Loading State) ---
+        // --- Word Analysis (Remains the same, returns raw markdown) ---
         async function analyzeWordProfile() {
             const input = document.getElementById('input-word').value;
             const outputWrapper = document.getElementById('word-output-wrapper');
@@ -432,7 +566,7 @@
 
                 statusDiv.textContent = "Vibration Analysis Complete.";
                 statusDiv.style.color = 'var(--secondary-color)';
-                outputDiv.innerHTML = renderMarkdown(data.result);
+                outputDiv.innerHTML = marked.parse(data.result); 
                 outputWrapper.classList.remove('hidden');
 
             } catch (error) {
@@ -447,57 +581,204 @@
             }
         }
 
-        // --- Export Functions (PDF/Copy logic kept the same) ---
-        // [getReportData, exportReport, copyReportText functions remain exactly as in the previous step]
+        // --- Export Functions (REWRITTEN: Professional PDFMake - GOAL 1) ---
+        
+        // Removed markdownToPdfMake utility function
+        
+        function exportNumerologyReport() {
+            const profiles = loadVault();
+            const reportData = profiles[0]; 
+
+            if (!reportData || !reportData.result || typeof reportData.result !== 'object') {
+                alert("Please generate a Destiny Profile first, and ensure the Destiny Vault is not empty.");
+                return;
+            }
+
+            const meta = reportData.metadata;
+            const data = reportData.result;
+            
+            // --- PROFESSIONAL PDF STYLES ---
+            const styles = {
+                header: { 
+                    fontSize: 24, 
+                    bold: true, 
+                    color: '#2c3e50', // Dark Blue/Black for print
+                    alignment: 'center', 
+                    margin: [0, 0, 0, 10] 
+                },
+                title: { 
+                    fontSize: 32, 
+                    bold: true, 
+                    color: '#8e44ad', // Deep Purple
+                    alignment: 'center', 
+                    margin: [0, 20, 0, 30] 
+                },
+                sectionHeader: { 
+                    fontSize: 18, 
+                    bold: true, 
+                    color: '#34495e', // Dark Gray-Blue
+                    margin: [0, 30, 0, 10], 
+                    decoration: 'underline', 
+                    decorationColor: '#bdc3c7',
+                    pageBreak: 'before' // Explicit page break for major sections
+                },
+                subHeader: { 
+                    fontSize: 14, 
+                    bold: true, 
+                    color: '#34495e', 
+                    margin: [0, 15, 0, 5] 
+                },
+                body: { 
+                    fontSize: 11, 
+                    color: '#222222', // Near-black for print readability
+                    lineHeight: 1.5, 
+                    margin: [0, 2, 0, 0] 
+                },
+                tableHeader: {
+                    fontSize: 12, 
+                    bold: true, 
+                    color: '#222222', 
+                    fillColor: '#ecf0f1', // Light Gray background for header row
+                    alignment: 'center'
+                },
+                meta: { 
+                    fontSize: 10, 
+                    color: '#7f8c8d', 
+                    alignment: 'right', 
+                    margin: [0, 0, 0, 4] 
+                }
+            };
+
+            // --- PROFESSIONAL PDF CONTENT STRUCTURE ---
+            const docDefinition = {
+                pageSize: 'A4',
+                // Explicitly set page margins (A4 standard margin)
+                pageMargins: [60, 60, 60, 60], 
+                
+                // White background is standard for printing (Dark background removed)
+                background: () => ({
+                    canvas: [{
+                        type: 'rect',
+                        x: 0, y: 0, w: 595, h: 842,
+                        color: '#FFFFFF' // Ensure white background
+                    }]
+                }),
+                
+                header: (currentPage, pageCount) => ({
+                    text: `Destiny Profile Report | Page ${currentPage} of ${pageCount}`,
+                    style: 'meta',
+                    margin: [60, 20, 60, 0]
+                }),
+
+                content: [
+                    // --- Page 1: Title and Metadata ---
+                    { text: 'The Destiny Matrix', style: 'header' },
+                    { text: data.title, style: 'title' },
+
+                    // User Details Table (GOAL: Fix Tables)
+                    {
+                        text: 'Core Numerological Coordinates',
+                        style: 'subHeader',
+                        margin: [0, 5, 0, 5]
+                    },
+                    {
+                        table: {
+                            headerRows: 1,
+                            widths: ['*', '*', '*', '*', '*'],
+                            body: [
+                                [
+                                    { text: 'Name', style: 'tableHeader' }, 
+                                    { text: 'DOB', style: 'tableHeader' }, 
+                                    { text: 'Life Path', style: 'tableHeader' }, 
+                                    { text: 'Birth No.', style: 'tableHeader' }, 
+                                    { text: 'Destiny No.', style: 'tableHeader' }
+                                ],
+                                [
+                                    { text: meta.name, style: 'body', alignment: 'center' }, 
+                                    { text: meta.dob, style: 'body', alignment: 'center' }, 
+                                    { text: `${meta.lifePathNo} (${meta.missionPlanet})`, style: 'body', alignment: 'center' }, 
+                                    { text: `${meta.birthNo} (${meta.birthPlanet})`, style: 'body', alignment: 'center' }, 
+                                    { text: `${meta.destinyNo} (${meta.destinyPlanet})`, style: 'body', alignment: 'center' }
+                                ]
+                            ]
+                        },
+                        layout: {
+                            // Simple, print-safe horizontal lines
+                            hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+                            vLineWidth: () => 0,
+                            hLineColor: () => '#95a5a6',
+                            fillColor: (i) => (i === 0) ? '#ecf0f1' : null,
+                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 8, paddingBottom: () => 8
+                        },
+                        margin: [0, 10, 0, 30] // Increased spacing after the table
+                    },
+
+                    // Section 1: Core Life Path (GOAL: Content Flow)
+                    { text: '1. Core Life Path Summary (Chaldean Numerology)', style: 'sectionHeader', pageBreak: 'before' }, 
+                    ...formatReportContent(data.lifePathSummary),
+
+                    // Section 2: Vedic Fusion
+                    { text: `2. Vedic Planetary Fusion (Graha Drishti)`, style: 'sectionHeader' },
+                    ...formatReportContent(data.vedicFusion),
+                    
+                    // Section 3: Destiny Number
+                    { text: `3. Destiny Number & Ultimate Expression`, style: 'sectionHeader' },
+                    ...formatReportContent(data.destinyExplanation),
+
+                    // Section 4: Key Traits
+                    { text: '4. Key Strengths & Challenges', style: 'sectionHeader' },
+                    
+                    { text: 'Key Strengths:', style: 'subHeader' },
+                    ...formatReportContent(data.strengths),
+
+                    { text: 'Potential Challenges:', style: 'subHeader' },
+                    ...formatReportContent(data.challenges),
+
+                    // Section 5: Remedies
+                    { text: '5. Remedial Suggestions (Upayes)', style: 'sectionHeader' },
+                    ...formatReportContent(data.remedies),
+                    
+                    // Footer Info
+                    { 
+                        text: `\nReport Generated: ${new Date().toLocaleDateString()}`, 
+                        style: 'meta',
+                        margin: [0, 30, 0, 0] // Ensure margin for clean look
+                    }
+                ],
+                styles: styles
+            };
+
+            // Download the PDF
+            pdfMake.createPdf(docDefinition).download(`${meta.name.replace(/\s/g, '_')}_Destiny_Report.pdf`);
+        }
+        
+        // This function intercepts the word analysis export which relied on html2pdf
+        function exportReport(type) {
+             if (type === 'numerology') {
+                 exportNumerologyReport();
+             } else {
+                 alert("The Word Analysis PDF export is temporarily disabled. Please use the Destiny Profile PDF function.");
+             }
+        }
+        
+        // --- Copy Report Text (Adapted for Structured Data) ---
 
         function getReportData(type) {
             if (type === 'numerology') {
+                const profiles = loadVault();
+                if (profiles.length === 0) return null;
+                // Rely on the innerText of the rendered markdown output
                 return {
-                    element: document.getElementById('numerology-output'),
-                    name: document.getElementById('full-name').value || 'User',
-                    date: new Date().toISOString().slice(0, 10),
-                    reportType: 'Personal Destiny Matrix'
+                    element: document.getElementById('numerology-output'), 
+                    name: profiles[0].metadata.name,
                 };
             } else if (type === 'word') {
                 return {
                     element: document.getElementById('word-output'),
                     name: document.getElementById('input-word').value || 'Vibration',
-                    date: new Date().toISOString().slice(0, 10),
-                    reportType: 'Vibration Analysis'
                 };
             }
             return null;
-        }
-
-        function exportReport(type) {
-            const report = getReportData(type);
-            if (!report || !report.element.innerHTML.trim()) {
-                alert("Please generate a profile first before attempting to export.");
-                return;
-            }
-            const pdfContent = document.createElement('div');
-            pdfContent.style.padding = '20px';
-            pdfContent.style.fontFamily = 'Arial, sans-serif';
-
-            pdfContent.innerHTML = `
-                <div style="text-align: center; border-bottom: 2px solid #5D50FF; padding-bottom: 10px; margin-bottom: 20px;">
-                    <h1 style="color: #5D50FF; margin: 0;">The Destiny Matrix: ${report.reportType}</h1>
-                    <p style="margin: 5px 0 0 0; color: #666;">Report for: ${report.name} | Date: ${report.date}</p>
-                </div>
-            `;
-            pdfContent.appendChild(report.element.cloneNode(true));
-            
-            const filename = `${report.name.replace(/\s/g, '_')}_${report.reportType.replace(/\s/g, '_')}_${report.date}.pdf`;
-            
-            const options = {
-                margin: 10,
-                filename: filename,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, logging: false, dpi: 192, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().from(pdfContent).set(options).save();
         }
 
         async function copyReportText(type) {
@@ -531,18 +812,17 @@
             }
         }
 
-        // --- Chatbot Logic (Unchanged, except for DOMContentLoaded initialization) ---
+        // --- Chatbot Logic (Unchanged) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
             chatWindow.classList.toggle('closed');
-            // History is now initialized in DOMContentLoaded
         }
         
         function addMessageToChat(text, sender) {
             const messagesDiv = document.getElementById('chat-messages');
             const messageElement = document.createElement('div');
             messageElement.classList.add('chat-message', sender);
-            messageElement.innerHTML = renderMarkdown(text); 
+            messageElement.innerHTML = marked.parse(text); 
             messagesDiv.appendChild(messageElement);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }

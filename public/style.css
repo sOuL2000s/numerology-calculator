@@ -22,15 +22,23 @@ body {
     font-family: 'Poppins', sans-serif;
     margin: 0;
     padding: 0;
-    background: linear-gradient(135deg, var(--background-dark) 0%, #1A1F3C 100%);
+    background-color: var(--background-dark); 
     color: var(--text-light);
     line-height: 1.7;
     min-height: 100vh;
-    overflow-x: hidden; /* Prevent horizontal scroll when vault is open */
+    overflow-x: hidden; 
+}
+
+/* --- STEP 5.3: Cosmic Canvas Background --- */
+#cosmos {
+    position: fixed;
+    inset: 0;
+    z-index: -2; 
+    pointer-events: none;
+    background: linear-gradient(135deg, var(--background-dark) 0%, #1A1F3C 100%);
 }
 
 /* --- VAULT OPEN STATE MANAGEMENT --- */
-/* When the vault is open, dim the main content and hide the trigger button */
 body.vault-open main,
 body.vault-open header {
     filter: blur(2px) grayscale(30%);
@@ -43,7 +51,6 @@ body.vault-open #vault-trigger {
     opacity: 0;
     pointer-events: none;
 }
-/* Ensure the chatbot remains accessible but is slightly blurred/dimmed */
 body.vault-open #chatbot-container {
      filter: blur(1px) brightness(0.8);
 }
@@ -57,6 +64,7 @@ header {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     position: relative;
     overflow: hidden; 
+    z-index: 1;
 }
 
 /* Subtle background glow/texture for Hero Section */
@@ -105,6 +113,8 @@ main {
     display: flex;
     flex-direction: column;
     gap: 30px;
+    position: relative;
+    z-index: 1;
 }
 
 /* --- Card Styles --- */
@@ -157,10 +167,11 @@ main {
     padding-left: 5px;
 }
 
+/* Targeting Flatpickr input and normal text input */
 input[type="text"], 
-input[type="date"] {
+.flatpickr-input { 
     width: 100%;
-    padding: 14px 14px 14px 40px; /* Increased left padding for icon */
+    padding: 14px 14px 14px 40px; 
     background-color: rgba(0, 0, 0, 0.3); 
     color: var(--text-dark);
     border: 1px solid var(--border-color);
@@ -171,7 +182,7 @@ input[type="date"] {
     transition: border-color 0.3s, box-shadow 0.3s;
 }
 input[type="text"]:focus, 
-input[type="date"]:focus {
+.flatpickr-input:focus {
     border-color: var(--accent-gold);
     outline: none;
     box-shadow: 0 0 10px rgba(244, 196, 48, 0.5); /* Gold glow on focus */
@@ -182,6 +193,37 @@ input[type="date"]:focus {
 .input-group.full-width .input-icon {
     left: 12px;
 }
+
+/* Flatpickr Dark Theme adjustments */
+.flatpickr-calendar {
+    background: #1A1F3C !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-deep) !important;
+}
+.flatpickr-day {
+    color: var(--text-light) !important;
+}
+.flatpickr-day.selected, .flatpickr-day.selected:hover {
+    background: var(--secondary-color) !important;
+    border-color: var(--secondary-color) !important;
+    color: var(--background-dark) !important;
+}
+.flatpickr-day.today {
+    border-color: var(--accent-gold) !important;
+}
+.flatpickr-day.today:hover {
+    background: var(--accent-gold) !important;
+    color: var(--background-dark) !important;
+}
+.flatpickr-months .flatpickr-month {
+    color: var(--secondary-color) !important;
+}
+.flatpickr-current-month .flatpickr-monthDropDown-months, 
+.numInputWrapper {
+    color: var(--text-light) !important;
+    background: transparent !important;
+}
+
 
 /* --- CTA Button & Loading State --- */
 button {
@@ -199,7 +241,7 @@ button {
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: hidden; /* For progress bar */
+    overflow: hidden; 
 }
 
 /* Glow Pulse effect */
@@ -208,9 +250,37 @@ button:not(.export-button):hover {
     box-shadow: 0 0 15px rgba(244, 196, 48, 0.7), 0 0 5px rgba(244, 196, 48, 1) inset;
 }
 
+/* STEP 3.2: Floating Animation for the Vault Trigger */
+@keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+#vault-trigger {
+    animation: float 3s ease-in-out infinite;
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    padding: 12px 20px;
+    background-color: var(--primary-color);
+    color: var(--text-dark);
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-deep);
+    z-index: 1010;
+    transition: background-color 0.2s;
+}
+#vault-trigger:hover {
+    background-color: #553399;
+    animation-play-state: paused; 
+}
+
+
 .button-loading {
     cursor: not-allowed;
-    background-color: #f7d979; /* muted gold */
+    background-color: #f7d979; 
     position: relative;
     overflow: hidden;
 }
@@ -222,7 +292,7 @@ button:not(.export-button):hover {
     height: 100%;
     width: 0;
     background-color: rgba(0, 0, 0, 0.1);
-    animation: progress 5s forwards; /* 5s visual progress bar */
+    animation: progress 5s forwards; 
     z-index: 1;
 }
 .button-loading span {
@@ -299,28 +369,10 @@ button:not(.export-button):hover {
 
 
 /* --- Destiny Vault Side Panel Styles --- */
-#vault-trigger {
-    position: fixed;
-    top: 25px;
-    right: 25px;
-    padding: 12px 20px;
-    background-color: var(--primary-color);
-    color: var(--text-dark);
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: var(--shadow-deep);
-    z-index: 1010;
-    transition: background-color 0.2s;
-}
-#vault-trigger:hover {
-    background-color: #553399;
-}
-
 #destiny-vault {
     position: fixed;
     top: 0;
-    right: -400px; /* Hidden state */
+    right: -400px; 
     width: 350px;
     max-width: 90vw;
     height: 100%;
@@ -417,7 +469,7 @@ button:not(.export-button):hover {
     color: var(--background-dark);
 }
 .vault-actions .delete-btn {
-    background-color: #8c0000; /* Dark red for deletion */
+    background-color: #8c0000; 
 }
 .vault-actions .delete-btn:hover {
     background-color: #b30000;
@@ -453,12 +505,12 @@ button:not(.export-button):hover {
     }
 }
 
-/* --- Floating AI Chatbot Styles (New/Improved) --- */
+/* --- Floating AI Chatbot Styles (STEP 3.1: Resizing) --- */
 #chatbot-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 320px;
+    width: 320px; /* Fixed width */
     max-height: 80vh;
     box-shadow: var(--shadow-deep);
     border-radius: 12px;
@@ -489,8 +541,8 @@ button:not(.export-button):hover {
 #chat-window {
     display: flex;
     flex-direction: column;
-    height: 400px; 
-    background-color: #1A1F3C; /* Dark card background */
+    height: 420px; /* STEP 3.1: Fixed height */
+    background-color: #1A1F3C; 
     transition: all 0.3s ease-in-out;
 }
 
@@ -598,7 +650,7 @@ button:not(.export-button):hover {
     font-size: 0.9em;
     margin-top: 0;
     height: 40px;
-    width: 70px; /* fixed width for better alignment */
+    width: 70px; 
 }
 
 /* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
@@ -610,3 +662,4 @@ button:not(.export-button):hover {
         bottom: 10px;
     }
 }
+

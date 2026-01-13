@@ -12,8 +12,8 @@ const PORT = process.env.PORT || 3000;
 
 // Initialize GoogleGenAI client and define models
 const ai = new GoogleGenAI({}); 
-const numerologyModel = "gemini-2.5-flash"; 
-const chatModel = "gemini-2.5-flash"; 
+const numerologyModel = "gemini-2.5-flash-preview-09-2025"; 
+const chatModel = "gemini-2.5-flash-preview-09-2025"; 
 
 // Setup paths for serving
 const __filename = fileURLToPath(import.meta.url);
@@ -74,13 +74,36 @@ function calculateLifePathNumber(dob) {
         sum += parseInt(digit, 10);
     }
     
-    // Note: Master numbers (11, 22, 33) are NOT reduced in standard Western numerology,
-    // but for simplicity and consistency with the 1-9 planetary mapping, we reduce all the way.
-    // The previous implementation used full reduction, so we maintain this consistency.
+    // Note: The reduction maintains consistency with the 1-9 planetary mapping.
     return calculateSingleDigit(sum);
 }
 
-// --- NEW: Planetary Mapping Matrix (Vedic Grahas) ---
+// --- NEW: Name Calculation (Destiny Number) ---
+const NAME_MAPPING = {
+    A: 1, I: 1, J: 1, Q: 1, Y: 1,
+    B: 2, K: 2, R: 2,
+    C: 3, G: 3, L: 3, S: 3,
+    D: 4, M: 4, T: 4,
+    E: 5, H: 5, N: 5, X: 5,
+    U: 6, V: 6, W: 6,
+    O: 7, Z: 7,
+    F: 8, P: 8,
+};
+
+function calculateDestinyNumber(name) {
+    if (!name) return 0;
+    // Normalize name: uppercase and remove non-alphabetic characters
+    name = name.toUpperCase().replace(/[^A-Z]/g, ''); 
+    let sum = 0;
+    for (const letter of name) {
+        sum += NAME_MAPPING[letter] || 0;
+    }
+    // The Destiny Number is often reduced fully
+    return calculateSingleDigit(sum);
+}
+
+
+// --- Planetary Mapping Matrix (Vedic Grahas) ---
 const PLANETARY_MAPPING = {
     1: { planet: "Sun (Surya ☉)", day: "Sunday", influence: "Authority, Soul, Leadership, Vitality, Ego." },
     2: { planet: "Moon (Chandra ☽)", day: "Monday", influence: "Mind, Emotions, Intuition, Fluctuation, Nurturing." },
@@ -123,7 +146,7 @@ const CAREER_MATRIX = [
 
 // --- API Endpoints ---
 
-// 1. Numerology Calculation Endpoint (Detailed Profile - Updated for Vedic Data)
+// 1. Numerology Calculation Endpoint (Structured Profile Output)
 app.post('/api/numerology-profile', async (req, res) => {
     const { name, dob } = req.body;
 
@@ -135,6 +158,7 @@ app.post('/api/numerology-profile', async (req, res) => {
         // Calculate necessary numbers (1-9)
         const birthNo = calculateBirthNumber(dob);
         const lifePathNo = calculateLifePathNumber(dob);
+        const destinyNo = calculateDestinyNumber(name); // Destiny Number
 
         // Lookup Archetype and Career based on matrices
         const archetype = ARCHETYPE_MATRIX[birthNo - 1][lifePathNo - 1];
@@ -143,59 +167,87 @@ app.post('/api/numerology-profile', async (req, res) => {
         // Lookup Planetary Data
         const birthPlanet = PLANETARY_MAPPING[birthNo];
         const missionPlanet = PLANETARY_MAPPING[lifePathNo];
+        const destinyPlanet = PLANETARY_MAPPING[destinyNo]; 
         
-        if (!birthPlanet || !missionPlanet) {
-             throw new Error("Invalid numerology calculation result.");
+        if (!birthPlanet || !missionPlanet || !destinyPlanet) {
+             throw new Error("Invalid numerology calculation result (1-9 mapping failure).");
         }
 
         const numerologyPrompt = `
-            You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer (Jyotish), specializing in blending Chaldean numerology with Graha (planetary) influences. Your analysis must be structured, professional, and insightful.
-            The entire response MUST be formatted using rich Markdown (headers, lists, bolding, italics) for optimal presentation.
+            You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer (Jyotish). Your response MUST be a single, clean JSON object that strictly adheres to the provided schema. Do not include any text outside the JSON object. Use rich Markdown syntax (lists, bolding, headings) within the string fields for optimal rendering.
 
-            **User Details:**
-            *   Full Name (at birth): ${name}
+            **Core Data:**
+            *   Full Name: ${name}
             *   Date of Birth: ${dob}
-
-            **Numerological Coordinates:**
             *   Personality/Birth Number: ${birthNo} (Governed by ${birthPlanet.planet})
             *   Mission/Life Path Number: ${lifePathNo} (Governed by ${missionPlanet.planet})
+            *   Destiny Number (Name Vibe): ${destinyNo} (Governed by ${destinyPlanet.planet})
             *   Combined Archetype: ${archetype}
             *   Best Fit Career Vocation: ${career}
+            *   Planetary Day of Strength: ${birthPlanet.day}
 
-            **Instructions for Report Generation (Must Address All Points):**
-            1.  **Title the Report:** Use the Archetype as the main title (e.g., "# The ${archetype} Profile").
-            2.  **Section 1: Core Energies & Numbers (Chaldean & Vedic).** Explain the meaning of the Personality Number (${birthNo}) and the Mission Number (${lifePathNo}) based on Chaldean Numerology. **CRITICAL: Immediately follow this with a detailed interpretation of the ruling Grahas (${birthPlanet.planet} and ${missionPlanet.planet}). Discuss the core karmic themes and disposition (Prakriti) imparted by these two major Vedic influences.**
-            3.  **Section 2: Planetary Influence Overlay (Jyotish Focus).** Provide a deep, detailed analysis of how the governing planets—${birthPlanet.planet} (for Personality) and ${missionPlanet.planet} (for Mission)—flavor the user's life according to Vedic wisdom. Discuss the timing (Dasha/Bhukti themes), potential struggles (doshas), and inherent traits the planetary energy adds. Use Jyotish terminology where appropriate (e.g., Sattva, Rajas, Tamas Gunas).
-            4.  **Section 3: The Combined Archetype (${archetype}).** Provide a detailed analysis of what this specific combination means for the user's overall life path, blending the numerical mission with the planetary energies.
-            5.  **Section 4: Career & Vocation (${career}).** Offer insight into why the suggested career path of "${career}" is a powerful fit, linking it to the strengths of their dominant Grahas.
-            6.  **Section 5: Destiny Number (Based on Name).** Calculate the Destiny Number based on the letters of the name (${name}) and provide a detailed explanation of its influence (The 'Why').
-            7.  **Summary & Remedial Suggestions (Vedic).** Provide a short, actionable summary titled "🚀 Navigating Your Path," including suggestions for utilizing their Planetary Day of Strength (e.g., utilize ${birthPlanet.day} for initiating new projects). **CRITICAL: Include specific, practical remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, colors, offerings, specific stones or activities).**
+            **Instructions for JSON Content Generation:**
+            1.  **title:** Must be the Archetype as the main title (e.g., "The ${archetype} Destiny Profile").
+            2.  **lifePathSummary:** Explain the meaning of the combined Archetype (${archetype}). Detail the interplay between the Birth Number (${birthNo}) and the Life Path Number (${lifePathNo}) in Chaldean terms.
+            3.  **vedicFusion:** Provide a deep, detailed analysis (Jyotish Focus) of how the governing planets—${birthPlanet.planet} (Personality) and ${missionPlanet.planet} (Mission)—flavor the user's life according to Vedic wisdom. Discuss core karmic themes and disposition (Prakriti) imparted by these two Grahas.
+            4.  **strengths:** Identify three key positive personality traits and inherent talents resulting from this specific numerical and planetary fusion. Use a markdown list.
+            5.  **challenges:** Identify three key potential struggles, pitfalls, or growth areas (often linked to planetary doshas or numerical conflicts). Use a markdown list.
+            6.  **remedies:** Provide three specific, practical Vedic remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, specific days/colors to utilize, offerings, or activities). Mention utilizing their Planetary Day of Strength (${birthPlanet.day}). Use a markdown list.
+            7.  **destinyExplanation:** Provide a detailed explanation of the Destiny Number (${destinyNo}) and its planetary ruler (${destinyPlanet.planet}). Explain how this energy shapes the user's ultimate life expression and impact on the world.
         `;
+
+        // Define the JSON structure for the Gemini API call
+        const numerologySchema = {
+            type: "object",
+            properties: {
+                title: { type: "string" },
+                lifePathSummary: { type: "string" },
+                vedicFusion: { type: "string" },
+                strengths: { type: "string" },
+                challenges: { type: "string" },
+                remedies: { type: "string" },
+                destinyExplanation: { type: "string" }
+            },
+            required: ["title", "lifePathSummary", "vedicFusion", "strengths", "challenges", "remedies", "destinyExplanation"]
+        };
+
 
         const aiResponse = await ai.models.generateContent({
             model: numerologyModel,
             contents: numerologyPrompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: numerologySchema
+            }
         });
         
-        // Structure the response data for the Destiny Vault
+        // Parse the AI's JSON text output
+        const resultJson = JSON.parse(aiResponse.text);
+
+        // Structure the response data for the UI and Destiny Vault
         res.json({ 
-            result: aiResponse.text,
+            result: resultJson, // Structured JSON
             metadata: {
                 name,
                 dob,
                 birthNo,
                 lifePathNo,
+                destinyNo, 
                 archetype,
-                birthPlanet,
-                missionPlanet,
                 career,
-                dateGenerated: new Date().toISOString()
+                dateGenerated: new Date().toISOString(),
+                birthPlanet: birthPlanet.planet,
+                missionPlanet: missionPlanet.planet,
+                destinyPlanet: destinyPlanet.planet
             }
         });
 
     } catch (error) {
         console.error("Gemini Numerology Error:", error);
-        res.status(500).send({ error: "Failed to generate comprehensive profile from AI." });
+        if (error.response && error.response.text) {
+             console.error("Raw AI Response:", error.response.text.substring(0, 500));
+        }
+        res.status(500).send({ error: "Failed to generate comprehensive profile from AI. Check API key and model setup." });
     }
 });
 

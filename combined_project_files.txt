@@ -124,6 +124,9 @@ function calculateLifePathNumber(dob) {
         sum += parseInt(digit, 10);
     }
     
+    // Note: Master numbers (11, 22, 33) are NOT reduced in standard Western numerology,
+    // but for simplicity and consistency with the 1-9 planetary mapping, we reduce all the way.
+    // The previous implementation used full reduction, so we maintain this consistency.
     return calculateSingleDigit(sum);
 }
 
@@ -196,7 +199,7 @@ app.post('/api/numerology-profile', async (req, res) => {
         }
 
         const numerologyPrompt = `
-            You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer, specializing in blending Chaldean numerology with Graha (planetary) influences. Your analysis must be structured, professional, and insightful.
+            You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer (Jyotish), specializing in blending Chaldean numerology with Graha (planetary) influences. Your analysis must be structured, professional, and insightful.
             The entire response MUST be formatted using rich Markdown (headers, lists, bolding, italics) for optimal presentation.
 
             **User Details:**
@@ -211,12 +214,12 @@ app.post('/api/numerology-profile', async (req, res) => {
 
             **Instructions for Report Generation (Must Address All Points):**
             1.  **Title the Report:** Use the Archetype as the main title (e.g., "# The ${archetype} Profile").
-            2.  **Section 1: Core Energies & Numbers.** Explain the meaning of the Personality Number (${birthNo}) and the Mission Number (${lifePathNo}) based on Chaldean Numerology.
-            3.  **Section 2: Planetary Influence Overlay.** Provide a detailed analysis of how the governing planets—${birthPlanet.planet} (for Personality) and ${missionPlanet.planet} (for Mission)—flavor the user's life. Discuss the timing, struggles, and inherent traits the planetary energy adds to the core numerical meaning.
-            4.  **Section 3: The Combined Archetype (${archetype}).** Provide a detailed analysis of what this specific combination means for the user's life path.
-            5.  **Section 4: Career & Vocation (${career}).** Offer insight into why the suggested career path of "${career}" is a powerful fit.
+            2.  **Section 1: Core Energies & Numbers (Chaldean & Vedic).** Explain the meaning of the Personality Number (${birthNo}) and the Mission Number (${lifePathNo}) based on Chaldean Numerology. **CRITICAL: Immediately follow this with a detailed interpretation of the ruling Grahas (${birthPlanet.planet} and ${missionPlanet.planet}). Discuss the core karmic themes and disposition (Prakriti) imparted by these two major Vedic influences.**
+            3.  **Section 2: Planetary Influence Overlay (Jyotish Focus).** Provide a deep, detailed analysis of how the governing planets—${birthPlanet.planet} (for Personality) and ${missionPlanet.planet} (for Mission)—flavor the user's life according to Vedic wisdom. Discuss the timing (Dasha/Bhukti themes), potential struggles (doshas), and inherent traits the planetary energy adds. Use Jyotish terminology where appropriate (e.g., Sattva, Rajas, Tamas Gunas).
+            4.  **Section 3: The Combined Archetype (${archetype}).** Provide a detailed analysis of what this specific combination means for the user's overall life path, blending the numerical mission with the planetary energies.
+            5.  **Section 4: Career & Vocation (${career}).** Offer insight into why the suggested career path of "${career}" is a powerful fit, linking it to the strengths of their dominant Grahas.
             6.  **Section 5: Destiny Number (Based on Name).** Calculate the Destiny Number based on the letters of the name (${name}) and provide a detailed explanation of its influence (The 'Why').
-            7.  **Summary:** Provide a short, actionable summary titled "🚀 Navigating Your Path," including suggestions for utilizing their Planetary Day of Strength (e.g., utilize ${birthPlanet.day} for initiating new projects).
+            7.  **Summary & Remedial Suggestions (Vedic).** Provide a short, actionable summary titled "🚀 Navigating Your Path," including suggestions for utilizing their Planetary Day of Strength (e.g., utilize ${birthPlanet.day} for initiating new projects). **CRITICAL: Include specific, practical remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, colors, offerings, specific stones or activities).**
         `;
 
         const aiResponse = await ai.models.generateContent({
@@ -370,6 +373,7 @@ app.listen(PORT, () => {
 <body>
     
     <!-- 🗂️ Destiny Vault Trigger -->
+    <!-- The vault trigger must be visible outside the main flow to open the vault -->
     <button id="vault-trigger" onclick="toggleVault()">
         <i class="fas fa-box-open"></i> My Destiny Vault
     </button>
@@ -450,17 +454,18 @@ app.listen(PORT, () => {
         </section>
     </main>
 
-    <!-- 🗂️ Destiny Vault Side Panel (No-Login Dashboard) -->
+    <!-- 🗂️ Destiny Vault Side Panel (Now a full-screen takeover component) -->
     <div id="destiny-vault" class="closed">
         <div class="vault-header">
             <h3><i class="fas fa-scroll"></i> My Destiny Vault</h3>
-            <button id="vault-close" onclick="toggleVault()">×</button>
+            <!-- Use a dedicated 'Close' action -->
+            <button id="vault-close" onclick="toggleVault()"><i class="fas fa-times"></i></button>
         </div>
         <div id="vault-list">
             <p style="text-align: center; color: #999;">Loading saved profiles...</p>
         </div>
         <div id="vault-footer">
-            Profiles are stored securely on this device.
+            Profiles are stored securely on this device's local storage.
             <button class="export-button delete-btn" style="width:100%; margin-top: 10px;" onclick="clearVault()">Clear All Profiles</button>
         </div>
     </div>
@@ -491,6 +496,7 @@ app.listen(PORT, () => {
 
         // Function to safely sanitize and render Markdown
         const renderMarkdown = (markdownText) => {
+            // Note: Marked automatically handles basic XSS sanitation.
             return marked.parse(markdownText);
         };
         
@@ -501,11 +507,14 @@ app.listen(PORT, () => {
         
         function loadVault() {
             try {
+                // Ensure array is returned, even if storage is empty or corrupted
                 const profiles = JSON.parse(localStorage.getItem(VAULT_KEY) || '[]');
                 // Sort by creation date descending
                 return profiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             } catch (e) {
-                console.error("Error loading vault from local storage:", e);
+                console.error("Error loading vault from local storage. Storage might be corrupt. Clearing vault.", e);
+                // Clear potentially corrupted storage to prevent repeated errors
+                localStorage.removeItem(VAULT_KEY); 
                 return [];
             }
         }
@@ -517,9 +526,12 @@ app.listen(PORT, () => {
                 id: generateId(), 
                 createdAt: new Date().toISOString()
             };
+            
             profiles.unshift(newProfile);
             // Limit the vault size (e.g., to 20 profiles)
             localStorage.setItem(VAULT_KEY, JSON.stringify(profiles.slice(0, 20)));
+            
+            // Re-render the UI immediately
             renderVault();
         }
 
@@ -527,28 +539,61 @@ app.listen(PORT, () => {
             const profiles = loadVault();
             const listDiv = document.getElementById('vault-list');
             listDiv.innerHTML = ''; 
-
-            if (profiles.length === 0) {
-                listDiv.innerHTML = '<p style="text-align: center; color: #999; margin-top: 30px;">Your Destiny Vault is empty. Generate a profile to save it!</p>';
-                return;
-            }
+            
+            let renderedCount = 0;
+            const validProfiles = [];
+            let corruptionDetected = false;
 
             profiles.forEach(profile => {
+                // Critical Check: Ensure required metadata is present
+                if (!profile.metadata || !profile.metadata.name || !profile.result) {
+                    console.warn('Skipping and removing corrupted vault profile (Missing metadata or result):', profile);
+                    corruptionDetected = true;
+                    return; 
+                }
+                
+                validProfiles.push(profile); // Add to the list of valid profiles
+                
                 const date = new Date(profile.createdAt).toLocaleDateString();
                 const card = document.createElement('div');
                 card.classList.add('vault-profile-card');
+                
+                // Get the main title from the generated report if possible (first H1)
+                const tempDiv = document.createElement('div');
+                try {
+                    // Sanitize the result before parsing
+                    tempDiv.innerHTML = renderMarkdown(profile.result.substring(0, 500)); 
+                } catch (e) {
+                    console.error("Error rendering markdown for vault title extraction:", e);
+                    corruptionDetected = true;
+                    return;
+                }
+                
+                const reportTitle = tempDiv.querySelector('h1') ? tempDiv.querySelector('h1').textContent : profile.metadata.archetype;
+                
                 card.innerHTML = `
-                    <h4>${profile.metadata.name}</h4>
+                    <h4>${reportTitle}</h4>
                     <p>DOB: ${profile.metadata.dob} | Life Path: ${profile.metadata.lifePathNo}</p>
-                    <p>Archetype: ${profile.metadata.archetype}</p>
-                    <p>Saved: ${date}</p>
+                    <p class="small-meta">Saved: ${date}</p>
                     <div class="vault-actions">
-                        <button class="load-btn" onclick="loadProfileFromVault('${profile.id}')"><i class="fas fa-redo"></i> Reload</button>
+                        <button class="load-btn" onclick="loadProfileFromVault('${profile.id}')"><i class="fas fa-redo"></i> Load Report</button>
                         <button class="delete-btn" onclick="deleteProfileFromVault('${profile.id}')"><i class="fas fa-trash-alt"></i> Delete</button>
                     </div>
                 `;
                 listDiv.appendChild(card);
+                renderedCount++;
             });
+            
+            // FIX: If corruption was detected, rewrite local storage only with valid profiles
+            if (corruptionDetected) {
+                console.log("Auto-cleaning vault: Rewriting Local Storage with valid profiles only.");
+                localStorage.setItem(VAULT_KEY, JSON.stringify(validProfiles));
+            }
+
+            // Display empty message if no profiles were successfully rendered
+            if (renderedCount === 0) {
+                 listDiv.innerHTML = '<p class="vault-empty-message">Your Destiny Vault is empty. Generate a profile to save it!</p>';
+            }
         }
         
         function loadProfileFromVault(id) {
@@ -558,6 +603,7 @@ app.listen(PORT, () => {
             if (profile) {
                 // Populate the input fields (Name and DOB)
                 document.getElementById('full-name').value = profile.metadata.name;
+                // Convert stored ISO date to input[type="date"] format (YYYY-MM-DD)
                 const isoDate = new Date(profile.metadata.dob).toISOString().split('T')[0];
                 document.getElementById('dob').value = isoDate;
                 
@@ -573,9 +619,13 @@ app.listen(PORT, () => {
                 statusDiv.style.color = 'var(--secondary-color)';
                 
                 // Close the vault
-                toggleVault();
+                toggleVault(false); // Explicitly close the vault
+                
+                // Scroll to the output section
+                document.getElementById('numerology-output-wrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
             } else {
-                alert("Profile not found.");
+                alert("Profile not found. It may have been cleared or corrupted.");
                 renderVault(); 
             }
         }
@@ -583,34 +633,50 @@ app.listen(PORT, () => {
         function deleteProfileFromVault(id) {
             if (confirm("Are you sure you want to permanently delete this profile?")) {
                 let profiles = loadVault();
+                // Filter out the deleted ID
                 profiles = profiles.filter(p => p.id !== id);
                 localStorage.setItem(VAULT_KEY, JSON.stringify(profiles));
-                renderVault();
+                renderVault(); // Update UI
             }
         }
 
         function clearVault() {
             if (confirm("Are you sure you want to delete ALL profiles from your Destiny Vault? This cannot be undone.")) {
-                localStorage.removeItem(VAULT_KEY);
-                renderVault();
+                // Critical step: Remove all data
+                localStorage.removeItem(VAULT_KEY); 
+                renderVault(); // Update UI to empty state
                 alert("Destiny Vault cleared.");
             }
         }
 
-        function toggleVault() {
+        // State Management for the Vault (Fixing the UI Takeover Issue)
+        function toggleVault(shouldOpen) {
             const vault = document.getElementById('destiny-vault');
-            vault.classList.toggle('open');
-            // Re-render the vault content every time it opens to ensure freshness
-            if (vault.classList.contains('open')) {
+            const body = document.body;
+            
+            const isOpen = typeof shouldOpen === 'boolean' ? shouldOpen : !vault.classList.contains('open');
+
+            if (isOpen) {
+                vault.classList.add('open');
+                body.classList.add('vault-open'); // New class for state management
                 renderVault();
+            } else {
+                vault.classList.remove('open');
+                body.classList.remove('vault-open');
             }
         }
 
         // Initialize vault rendering on page load
-        document.addEventListener('DOMContentLoaded', renderVault);
+        document.addEventListener('DOMContentLoaded', () => {
+             renderVault();
+             // Pre-render the chatbot message, but keep it closed
+             if (chatHistory.length === 0) {
+                 chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
+             }
+        });
         
         
-        // --- Core Calculation Logic (Updated for Loading State & Saving) ---
+        // --- Core Calculation Logic (Includes Save Call) ---
         async function calculateNumerologyProfile() {
             const name = document.getElementById('full-name').value;
             const dob = document.getElementById('dob').value;
@@ -647,7 +713,7 @@ app.listen(PORT, () => {
                 if (data.error || !response.ok) {
                     statusDiv.textContent = `Error: Profile generation failed.`;
                     statusDiv.style.color = 'var(--accent-gold)'; 
-                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Profile generation failed.</p>`;
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Profile generation failed: ${data.error || response.statusText}</p>`;
                     return;
                 }
 
@@ -656,14 +722,14 @@ app.listen(PORT, () => {
                 outputDiv.innerHTML = renderMarkdown(data.result);
                 outputWrapper.classList.remove('hidden'); 
                 
-                // NEW: Save the generated profile to the Destiny Vault
+                // CRITICAL: Save the generated profile to the Destiny Vault immediately
                 saveProfileToVault(data);
 
 
             } catch (error) {
                 statusDiv.textContent = "A network error occurred. Check your connection.";
                 statusDiv.style.color = 'var(--accent-gold)';
-                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error.</p>`;
+                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error: ${error.message}</p>`;
                 console.error('Calculation Error:', error);
             } finally {
                 // End Loading State UI
@@ -816,17 +882,11 @@ app.listen(PORT, () => {
             }
         }
 
-        // --- Chatbot Logic (Unchanged) ---
+        // --- Chatbot Logic (Unchanged, except for DOMContentLoaded initialization) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
             chatWindow.classList.toggle('closed');
-            if (chatHistory.length === 0 && !chatWindow.classList.contains('closed')) {
-                addMessageToChat(
-                    "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry.",
-                    'model'
-                );
-                chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
-            }
+            // History is now initialized in DOMContentLoaded
         }
         
         function addMessageToChat(text, sender) {
@@ -922,6 +982,26 @@ body {
     min-height: 100vh;
     overflow-x: hidden; /* Prevent horizontal scroll when vault is open */
 }
+
+/* --- VAULT OPEN STATE MANAGEMENT --- */
+/* When the vault is open, dim the main content and hide the trigger button */
+body.vault-open main,
+body.vault-open header {
+    filter: blur(2px) grayscale(30%);
+    pointer-events: none;
+    user-select: none;
+    transition: filter 0.3s ease;
+}
+
+body.vault-open #vault-trigger {
+    opacity: 0;
+    pointer-events: none;
+}
+/* Ensure the chatbot remains accessible but is slightly blurred/dimmed */
+body.vault-open #chatbot-container {
+     filter: blur(1px) brightness(0.8);
+}
+
 
 /* --- Header Polish --- */
 header {
@@ -1271,6 +1351,10 @@ button:not(.export-button):hover {
     font-size: 0.85em;
     color: #aaa;
 }
+.vault-profile-card .small-meta {
+    font-size: 0.75em;
+    color: #666;
+}
 .vault-actions {
     display: flex;
     gap: 5px;
@@ -1301,7 +1385,7 @@ button:not(.export-button):hover {
     color: #666;
 }
 
-/* --- Mobile Adjustments --- */
+/* Mobile adjustments for vault */
 @media (max-width: 768px) {
     #destiny-vault {
         width: 100%;
@@ -1322,5 +1406,164 @@ button:not(.export-button):hover {
         left: 15px;
     }
 }
+
+/* --- Floating AI Chatbot Styles (New/Improved) --- */
+#chatbot-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    max-height: 80vh;
+    box-shadow: var(--shadow-deep);
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 990;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.3s ease-in-out;
+}
+
+#chat-header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 15px 20px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 2px solid var(--secondary-color);
+    transition: background-color 0.2s;
+}
+
+#chat-header:hover {
+    background-color: #553399;
+}
+
+#chat-window {
+    display: flex;
+    flex-direction: column;
+    height: 400px; 
+    background-color: #1A1F3C; /* Dark card background */
+    transition: all 0.3s ease-in-out;
+}
+
+#chat-window.closed {
+    height: 0;
+    padding: 0;
+    border: none;
+    opacity: 0;
+    pointer-events: none;
+}
+#chat-window:not(.closed) {
+    opacity: 1;
+}
+
+#chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Chat Scrollbar styling */
+#chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+#chat-messages::-webkit-scrollbar-thumb {
+    background-color: rgba(110, 231, 231, 0.4);
+    border-radius: 3px;
+}
+#chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-message {
+    max-width: 85%;
+    padding: 10px 15px;
+    border-radius: 15px;
+    word-wrap: break-word;
+    font-size: 0.9em;
+}
+
+/* User Messages - Gold/Dark contrast */
+.chat-message.user {
+    align-self: flex-end;
+    background-color: var(--accent-gold);
+    color: var(--background-dark);
+    border-bottom-right-radius: 4px;
+}
+
+/* Model Messages - Cyan/Light contrast */
+.chat-message.model {
+    align-self: flex-start;
+    background-color: rgba(110, 231, 231, 0.2); 
+    color: var(--text-light);
+    border: 1px solid rgba(110, 231, 231, 0.4);
+    border-bottom-left-radius: 4px;
+}
+
+.chat-message.model h3, .chat-message.model strong {
+    color: var(--secondary-color);
+    margin-top: 5px;
+}
+
+.chat-message.loading {
+    background: rgba(255, 255, 255, 0.1);
+    color: #999;
+    font-style: italic;
+    animation: pulse 1.5s infinite;
+    align-self: flex-start;
+}
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+#chat-input-area {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #1A1F3C;
+}
+
+#chat-input-area input {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    margin-right: 8px;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    font-size: 0.9em;
+    height: 40px;
+    box-sizing: border-box;
+    padding-left: 12px;
+}
+
+#chat-input-area button {
+    background-color: var(--secondary-color);
+    color: var(--background-dark);
+    padding: 0 15px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    margin-top: 0;
+    height: 40px;
+    width: 70px; /* fixed width for better alignment */
+}
+
+/* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
+@media (max-width: 768px) {
+    #chatbot-container {
+        width: 90vw;
+        left: 5vw;
+        right: auto;
+        bottom: 10px;
+    }
+}
+
 
 --- END FILE: public\style.css ---

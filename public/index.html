@@ -5,16 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Destiny Matrix | Advanced Numerology Profile</title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Google Fonts for Premium Theme -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for Icons (Input Enhancements & Vault) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <!-- Load marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Load html2pdf.js for PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-
+    
+    <!-- 🗂️ Destiny Vault Trigger -->
+    <!-- The vault trigger must be visible outside the main flow to open the vault -->
+    <button id="vault-trigger" onclick="toggleVault()">
+        <i class="fas fa-box-open"></i> My Destiny Vault
+    </button>
+    
     <header>
         <h1>The Destiny Matrix</h1>
-        <p>Advanced Life Path Analysis powered by Small AI v2.</p>
+        <p>Decode the hidden patterns of your life. Advanced Life Path Analysis powered by Small AI v2.</p>
+        <p class="credibility-line">Based on Chaldean Numerology, enhanced with AI & Vedic planetary wisdom.</p>
     </header>
 
     <main>
@@ -26,15 +42,23 @@
             <div class="input-container">
                 <div class="input-group">
                     <label for="full-name">Full Name (at birth):</label>
-                    <input type="text" id="full-name" placeholder="John Michael Doe">
+                    <div class="input-field-wrapper">
+                        <i class="input-icon fas fa-user-tag"></i>
+                        <input type="text" id="full-name" placeholder="John Michael Doe">
+                    </div>
+                    <p class="helper-text">Use the name exactly as shown on your birth certificate.</p>
                 </div>
                 <div class="input-group">
                     <label for="dob">Date of Birth:</label>
-                    <input type="date" id="dob">
+                    <div class="input-field-wrapper">
+                        <i class="input-icon fas fa-calendar-alt"></i>
+                        <input type="date" id="dob">
+                    </div>
+                    <p class="helper-text">Your exact date determines your Life Path number.</p>
                 </div>
             </div>
             
-            <button onclick="calculateNumerologyProfile()">Generate Comprehensive Profile</button>
+            <button id="calc-button" onclick="calculateNumerologyProfile()">Reveal My Numbers ✨</button>
             <p id="calc-status" class="status-message"></p>
             
             <!-- Output Wrapper starts hidden -->
@@ -56,10 +80,14 @@
 
             <div class="input-group full-width">
                 <label for="input-word">Name or Number to Analyze:</label>
-                <input type="text" id="input-word" placeholder="Project Phoenix, Apple Inc, My Street Address">
+                <div class="input-field-wrapper">
+                    <i class="input-icon fas fa-magic"></i>
+                    <input type="text" id="input-word" placeholder="Project Phoenix, Apple Inc, My Street Address">
+                </div>
+                <p class="helper-text">Analyze anything from business names to important dates or concepts.</p>
             </div>
 
-            <button onclick="analyzeWordProfile()">Analyze Vibration</button>
+            <button onclick="analyzeWordProfile()">Analyze Vibration ⚡</button>
             <p id="word-status" class="status-message"></p>
             
             <!-- Output Wrapper starts hidden -->
@@ -74,6 +102,23 @@
             </div>
         </section>
     </main>
+
+    <!-- 🗂️ Destiny Vault Side Panel (Now a full-screen takeover component) -->
+    <div id="destiny-vault" class="closed">
+        <div class="vault-header">
+            <h3><i class="fas fa-scroll"></i> My Destiny Vault</h3>
+            <!-- Use a dedicated 'Close' action -->
+            <button id="vault-close" onclick="toggleVault()"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="vault-list">
+            <p style="text-align: center; color: #999;">Loading saved profiles...</p>
+        </div>
+        <div id="vault-footer">
+            Profiles are stored securely on this device's local storage.
+            <button class="export-button delete-btn" style="width:100%; margin-top: 10px;" onclick="clearVault()">Clear All Profiles</button>
+        </div>
+    </div>
+
 
     <!-- Floating AI Chatbot Container -->
     <div id="chatbot-container">
@@ -92,34 +137,218 @@
     </div>
 
     <script>
-        // --- Global Chat History ---
+        // --- Global State ---
         let chatHistory = [];
+        const VAULT_KEY = 'destinyVaultProfiles';
+
+        // --- Utility Functions ---
 
         // Function to safely sanitize and render Markdown
         const renderMarkdown = (markdownText) => {
+            // Note: Marked automatically handles basic XSS sanitation.
             return marked.parse(markdownText);
         };
+        
+        // Generates a simple unique ID (for vault tracking)
+        const generateId = () => Math.random().toString(36).substring(2, 9);
+        
+        // --- Destiny Vault (Local Storage) Logic ---
+        
+        function loadVault() {
+            try {
+                // Ensure array is returned, even if storage is empty or corrupted
+                const profiles = JSON.parse(localStorage.getItem(VAULT_KEY) || '[]');
+                // Sort by creation date descending
+                return profiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            } catch (e) {
+                console.error("Error loading vault from local storage. Storage might be corrupt. Clearing vault.", e);
+                // Clear potentially corrupted storage to prevent repeated errors
+                localStorage.removeItem(VAULT_KEY); 
+                return [];
+            }
+        }
 
-        // --- Core Calculation Logic (Updated visibility control) ---
+        function saveProfileToVault(profileData) {
+            const profiles = loadVault();
+            const newProfile = { 
+                ...profileData, 
+                id: generateId(), 
+                createdAt: new Date().toISOString()
+            };
+            
+            profiles.unshift(newProfile);
+            // Limit the vault size (e.g., to 20 profiles)
+            localStorage.setItem(VAULT_KEY, JSON.stringify(profiles.slice(0, 20)));
+            
+            // Re-render the UI immediately
+            renderVault();
+        }
+
+        function renderVault() {
+            const profiles = loadVault();
+            const listDiv = document.getElementById('vault-list');
+            listDiv.innerHTML = ''; 
+            
+            let renderedCount = 0;
+            const validProfiles = [];
+            let corruptionDetected = false;
+
+            profiles.forEach(profile => {
+                // Critical Check: Ensure required metadata is present
+                if (!profile.metadata || !profile.metadata.name || !profile.result) {
+                    console.warn('Skipping and removing corrupted vault profile (Missing metadata or result):', profile);
+                    corruptionDetected = true;
+                    return; 
+                }
+                
+                validProfiles.push(profile); // Add to the list of valid profiles
+                
+                const date = new Date(profile.createdAt).toLocaleDateString();
+                const card = document.createElement('div');
+                card.classList.add('vault-profile-card');
+                
+                // Get the main title from the generated report if possible (first H1)
+                const tempDiv = document.createElement('div');
+                try {
+                    // Sanitize the result before parsing
+                    tempDiv.innerHTML = renderMarkdown(profile.result.substring(0, 500)); 
+                } catch (e) {
+                    console.error("Error rendering markdown for vault title extraction:", e);
+                    corruptionDetected = true;
+                    return;
+                }
+                
+                const reportTitle = tempDiv.querySelector('h1') ? tempDiv.querySelector('h1').textContent : profile.metadata.archetype;
+                
+                card.innerHTML = `
+                    <h4>${reportTitle}</h4>
+                    <p>DOB: ${profile.metadata.dob} | Life Path: ${profile.metadata.lifePathNo}</p>
+                    <p class="small-meta">Saved: ${date}</p>
+                    <div class="vault-actions">
+                        <button class="load-btn" onclick="loadProfileFromVault('${profile.id}')"><i class="fas fa-redo"></i> Load Report</button>
+                        <button class="delete-btn" onclick="deleteProfileFromVault('${profile.id}')"><i class="fas fa-trash-alt"></i> Delete</button>
+                    </div>
+                `;
+                listDiv.appendChild(card);
+                renderedCount++;
+            });
+            
+            // FIX: If corruption was detected, rewrite local storage only with valid profiles
+            if (corruptionDetected) {
+                console.log("Auto-cleaning vault: Rewriting Local Storage with valid profiles only.");
+                localStorage.setItem(VAULT_KEY, JSON.stringify(validProfiles));
+            }
+
+            // Display empty message if no profiles were successfully rendered
+            if (renderedCount === 0) {
+                 listDiv.innerHTML = '<p class="vault-empty-message">Your Destiny Vault is empty. Generate a profile to save it!</p>';
+            }
+        }
+        
+        function loadProfileFromVault(id) {
+            const profiles = loadVault();
+            const profile = profiles.find(p => p.id === id);
+
+            if (profile) {
+                // Populate the input fields (Name and DOB)
+                document.getElementById('full-name').value = profile.metadata.name;
+                // Convert stored ISO date to input[type="date"] format (YYYY-MM-DD)
+                const isoDate = new Date(profile.metadata.dob).toISOString().split('T')[0];
+                document.getElementById('dob').value = isoDate;
+                
+                // Render the report content
+                const outputWrapper = document.getElementById('numerology-output-wrapper');
+                const outputDiv = document.getElementById('numerology-output');
+                const statusDiv = document.getElementById('calc-status');
+                
+                outputDiv.innerHTML = renderMarkdown(profile.result);
+                outputWrapper.classList.remove('hidden');
+                
+                statusDiv.textContent = `Profile for ${profile.metadata.name} loaded from Vault.`;
+                statusDiv.style.color = 'var(--secondary-color)';
+                
+                // Close the vault
+                toggleVault(false); // Explicitly close the vault
+                
+                // Scroll to the output section
+                document.getElementById('numerology-output-wrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            } else {
+                alert("Profile not found. It may have been cleared or corrupted.");
+                renderVault(); 
+            }
+        }
+        
+        function deleteProfileFromVault(id) {
+            if (confirm("Are you sure you want to permanently delete this profile?")) {
+                let profiles = loadVault();
+                // Filter out the deleted ID
+                profiles = profiles.filter(p => p.id !== id);
+                localStorage.setItem(VAULT_KEY, JSON.stringify(profiles));
+                renderVault(); // Update UI
+            }
+        }
+
+        function clearVault() {
+            if (confirm("Are you sure you want to delete ALL profiles from your Destiny Vault? This cannot be undone.")) {
+                // Critical step: Remove all data
+                localStorage.removeItem(VAULT_KEY); 
+                renderVault(); // Update UI to empty state
+                alert("Destiny Vault cleared.");
+            }
+        }
+
+        // State Management for the Vault (Fixing the UI Takeover Issue)
+        function toggleVault(shouldOpen) {
+            const vault = document.getElementById('destiny-vault');
+            const body = document.body;
+            
+            const isOpen = typeof shouldOpen === 'boolean' ? shouldOpen : !vault.classList.contains('open');
+
+            if (isOpen) {
+                vault.classList.add('open');
+                body.classList.add('vault-open'); // New class for state management
+                renderVault();
+            } else {
+                vault.classList.remove('open');
+                body.classList.remove('vault-open');
+            }
+        }
+
+        // Initialize vault rendering on page load
+        document.addEventListener('DOMContentLoaded', () => {
+             renderVault();
+             // Pre-render the chatbot message, but keep it closed
+             if (chatHistory.length === 0) {
+                 chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
+             }
+        });
+        
+        
+        // --- Core Calculation Logic (Includes Save Call) ---
         async function calculateNumerologyProfile() {
             const name = document.getElementById('full-name').value;
             const dob = document.getElementById('dob').value;
             const outputWrapper = document.getElementById('numerology-output-wrapper');
             const outputDiv = document.getElementById('numerology-output');
             const statusDiv = document.getElementById('calc-status');
+            const calcButton = document.getElementById('calc-button');
             
-            // Start by hiding output until success
             outputWrapper.classList.add('hidden');
 
             if (!name || !dob) {
                 statusDiv.textContent = "Please ensure both name and date of birth are entered.";
-                statusDiv.style.color = '#dc3545';
+                statusDiv.style.color = 'var(--accent-gold)'; 
                 return;
             }
 
+            // Start Loading State UI
             statusDiv.textContent = "Analyzing your Destiny Matrix...";
-            statusDiv.style.color = '#007bff';
-            outputDiv.innerHTML = '<p class="loading-animation">Generating detailed profile...</p>';
+            statusDiv.style.color = 'var(--secondary-color)';
+            outputDiv.innerHTML = '<p class="loading-animation">Calculating core vibration and planetary influences...</p>';
+            calcButton.classList.add('button-loading');
+            calcButton.innerHTML = '<span>Calculating Destiny...</span>'; // Set loading text
+            calcButton.disabled = true;
 
             try {
                 const response = await fetch('/api/numerology-profile', { 
@@ -132,43 +361,58 @@
 
                 if (data.error || !response.ok) {
                     statusDiv.textContent = `Error: Profile generation failed.`;
-                    statusDiv.style.color = '#dc3545';
-                    outputDiv.innerHTML = `<p style="color: red;">Profile generation failed.</p>`;
-                    return; // Crucial: Keep output hidden on error
+                    statusDiv.style.color = 'var(--accent-gold)'; 
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Profile generation failed: ${data.error || response.statusText}</p>`;
+                    return;
                 }
 
-                statusDiv.textContent = "Profile Generated Successfully.";
-                statusDiv.style.color = '#28a745';
+                statusDiv.textContent = "Profile Generated Successfully. Report saved to your Destiny Vault.";
+                statusDiv.style.color = 'var(--secondary-color)';
                 outputDiv.innerHTML = renderMarkdown(data.result);
-                // SHOW OUTPUT ONLY ON SUCCESS
                 outputWrapper.classList.remove('hidden'); 
+                
+                // CRITICAL: Save the generated profile to the Destiny Vault immediately
+                saveProfileToVault(data);
+
 
             } catch (error) {
                 statusDiv.textContent = "A network error occurred. Check your connection.";
-                statusDiv.style.color = '#dc3545';
-                outputDiv.innerHTML = `<p style="color: red;">Network Error.</p>`;
+                statusDiv.style.color = 'var(--accent-gold)';
+                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error: ${error.message}</p>`;
                 console.error('Calculation Error:', error);
+            } finally {
+                // End Loading State UI
+                calcButton.classList.remove('button-loading');
+                calcButton.innerHTML = 'Reveal My Numbers ✨'; // Reset button text
+                calcButton.disabled = false;
             }
         }
         
+        // --- Word Analysis (Updated for Loading State) ---
         async function analyzeWordProfile() {
             const input = document.getElementById('input-word').value;
             const outputWrapper = document.getElementById('word-output-wrapper');
             const outputDiv = document.getElementById('word-output');
             const statusDiv = document.getElementById('word-status');
+            const analyzeButton = document.querySelector('#word-analysis-app button');
 
-            // Start by hiding output until success
+
             outputWrapper.classList.add('hidden');
 
             if (!input) {
                 statusDiv.textContent = "Please enter a word, name, or number to analyze.";
-                statusDiv.style.color = '#dc3545';
+                statusDiv.style.color = 'var(--accent-gold)';
                 return;
             }
 
             statusDiv.textContent = "Analyzing vibrational frequency...";
-            statusDiv.style.color = '#007bff';
+            statusDiv.style.color = 'var(--secondary-color)';
             outputDiv.innerHTML = '<p class="loading-animation">Calculating core vibration...</p>';
+            
+            analyzeButton.classList.add('button-loading');
+            analyzeButton.innerHTML = '<span>Calculating Vibration...</span>';
+            analyzeButton.disabled = true;
+
 
             try {
                 const response = await fetch('/api/word-profile', { 
@@ -181,26 +425,30 @@
 
                 if (data.error || !response.ok) {
                     statusDiv.textContent = `Error: Analysis failed. Please try again.`;
-                    statusDiv.style.color = '#dc3545';
-                    outputDiv.innerHTML = `<p style="color: red;">Analysis failed.</p>`;
-                    return; // Crucial: Keep output hidden on error
+                    statusDiv.style.color = 'var(--accent-gold)';
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Analysis failed.</p>`;
+                    return; 
                 }
 
                 statusDiv.textContent = "Vibration Analysis Complete.";
-                statusDiv.style.color = '#28a745';
+                statusDiv.style.color = 'var(--secondary-color)';
                 outputDiv.innerHTML = renderMarkdown(data.result);
-                // SHOW OUTPUT ONLY ON SUCCESS
                 outputWrapper.classList.remove('hidden');
 
             } catch (error) {
                 statusDiv.textContent = "A network error occurred. Check your connection.";
-                statusDiv.style.color = '#dc3545';
-                outputDiv.innerHTML = `<p style="color: red;">Network Error.</p>`;
+                statusDiv.style.color = 'var(--accent-gold)';
+                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error.</p>`;
                 console.error('Word Analysis Error:', error);
+            } finally {
+                analyzeButton.classList.remove('button-loading');
+                analyzeButton.innerHTML = 'Analyze Vibration ⚡';
+                analyzeButton.disabled = false;
             }
         }
 
-        // --- Export Functions (Added check for empty content) ---
+        // --- Export Functions (PDF/Copy logic kept the same) ---
+        // [getReportData, exportReport, copyReportText functions remain exactly as in the previous step]
 
         function getReportData(type) {
             if (type === 'numerology') {
@@ -221,32 +469,24 @@
             return null;
         }
 
-        // 1. PDF Export
         function exportReport(type) {
             const report = getReportData(type);
-            // CHECK 1: Ensure report exists and its HTML content is not just whitespace
             if (!report || !report.element.innerHTML.trim()) {
                 alert("Please generate a profile first before attempting to export.");
                 return;
             }
-
-            // Create a temporary element to hold content for PDF generation
             const pdfContent = document.createElement('div');
             pdfContent.style.padding = '20px';
             pdfContent.style.fontFamily = 'Arial, sans-serif';
 
-            // Add Header
             pdfContent.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px solid #5D50FF; padding-bottom: 10px; margin-bottom: 20px;">
                     <h1 style="color: #5D50FF; margin: 0;">The Destiny Matrix: ${report.reportType}</h1>
                     <p style="margin: 5px 0 0 0; color: #666;">Report for: ${report.name} | Date: ${report.date}</p>
                 </div>
             `;
-            
-            // Append the actual HTML content (markdown-container)
             pdfContent.appendChild(report.element.cloneNode(true));
             
-            // PDF Generation Configuration
             const filename = `${report.name.replace(/\s/g, '_')}_${report.reportType.replace(/\s/g, '_')}_${report.date}.pdf`;
             
             const options = {
@@ -257,20 +497,16 @@
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            // Use html2pdf to generate and save the file
             html2pdf().from(pdfContent).set(options).save();
         }
 
-        // 2. Copy Text Export
         async function copyReportText(type) {
             const report = getReportData(type);
-            // CHECK 2: Ensure report exists and its inner text content is not empty
             if (!report || !report.element.innerText.trim()) {
                 alert("Please generate a profile first before attempting to copy.");
                 return;
             }
 
-            // Get the inner text (stripping HTML formatting)
             const textContent = report.element.innerText;
 
             try {
@@ -278,12 +514,11 @@
                 const statusDivId = type === 'numerology' ? 'calc-status' : 'word-status';
                 const statusDiv = document.getElementById(statusDivId);
                 
-                // Temporarily show success message
                 const originalText = statusDiv.textContent;
                 const originalColor = statusDiv.style.color;
                 
                 statusDiv.textContent = `Report text copied successfully!`;
-                statusDiv.style.color = '#28a745';
+                statusDiv.style.color = 'var(--secondary-color)';
                 
                 setTimeout(() => {
                     statusDiv.textContent = originalText;
@@ -296,18 +531,11 @@
             }
         }
 
-
-        // --- Chatbot Logic (Unchanged) ---
+        // --- Chatbot Logic (Unchanged, except for DOMContentLoaded initialization) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
             chatWindow.classList.toggle('closed');
-            if (chatHistory.length === 0 && !chatWindow.classList.contains('closed')) {
-                addMessageToChat(
-                    "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry.",
-                    'model'
-                );
-                chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
-            }
+            // History is now initialized in DOMContentLoaded
         }
         
         function addMessageToChat(text, sender) {

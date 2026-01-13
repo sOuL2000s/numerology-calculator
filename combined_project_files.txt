@@ -60,72 +60,230 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Initialize GoogleGenAI client and define models
+const ai = new GoogleGenAI({}); 
+const numerologyModel = "gemini-2.5-flash"; 
+const chatModel = "gemini-2.5-flash"; 
+
 // Setup paths for serving
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PUBLIC_PATH = path.join(__dirname, 'public'); // Define the public path
+const PUBLIC_PATH = path.join(__dirname, 'public'); 
 
 // Middleware
 app.use(express.json());
 
-// 1. Static File Serving: Point ALL static asset requests to the /public folder
-app.use(express.static(PUBLIC_PATH)); // <-- FIX 1: Point to /public
+// 1. Static File Serving
+app.use(express.static(PUBLIC_PATH)); 
 
-// 2. Explicit Root Route: Serve index.html from the /public folder
+// 2. Explicit Root Route
 app.get('/', (req, res) => {
-    res.sendFile(path.join(PUBLIC_PATH, 'index.html')); // <-- FIX 2: Point to /public/index.html
+    res.sendFile(path.join(PUBLIC_PATH, 'index.html')); 
 });
 
-// --- FIX: Explicit Route for Root Path ---
-app.get('/', (req, res) => {
-    // __dirname was defined at the top of server.js using fileURLToPath/path.dirname
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+// --- Numerology Helper Functions and Matrices ---
+
+// Helper function to reduce a number to a single digit (1-9)
+function calculateSingleDigit(num) {
+    if (typeof num !== 'number') num = parseInt(num, 10);
+    if (isNaN(num)) return 0;
+    
+    let s = String(num);
+    
+    while (s.length > 1) { 
+        let sum = 0;
+        for (let i = 0; i < s.length; i++) {
+            sum += parseInt(s[i], 10);
+        }
+        s = String(sum);
+    }
+    return parseInt(s, 10);
+}
+
+// Helper function to calculate Birth Number (Day only)
+function calculateBirthNumber(dob) {
+    // Extract day component (DD)
+    const date = new Date(dob);
+    // Ensure we handle date parsing robustly, using UTC methods
+    const day = date.getUTCDate();
+    return calculateSingleDigit(day);
+}
+
+// Helper function to calculate Life Path Number (M+D+Y)
+function calculateLifePathNumber(dob) {
+    const date = new Date(dob);
+    // Note: JS Date month is 0-indexed, so add 1
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+    const year = date.getUTCFullYear();
+    
+    // Sum all digits of M, D, and Y components and reduce
+    const allDigits = String(month) + String(day) + String(year);
+    let sum = 0;
+    for (const digit of allDigits) {
+        sum += parseInt(digit, 10);
+    }
+    
+    return calculateSingleDigit(sum);
+}
+
+// --- NEW: Planetary Mapping Matrix (Vedic Grahas) ---
+const PLANETARY_MAPPING = {
+    1: { planet: "Sun (Surya ☉)", day: "Sunday", influence: "Authority, Soul, Leadership, Vitality, Ego." },
+    2: { planet: "Moon (Chandra ☽)", day: "Monday", influence: "Mind, Emotions, Intuition, Fluctuation, Nurturing." },
+    3: { planet: "Jupiter (Guru ♃)", day: "Thursday", influence: "Wisdom, Growth, Guidance, Fortune, Expansion." },
+    4: { planet: "Rahu (☊ - North Node)", day: "Saturday/Wednesday (often mixed)", influence: "Innovation, Rebellion, Illusions, Unexpected Change, Material Obsession." },
+    5: { planet: "Mercury (Budh ☿)", day: "Wednesday", influence: "Communication, Intellect, Versatility, Business Acumen, Youthfulness." },
+    6: { planet: "Venus (Shukra ♀)", day: "Friday", influence: "Love, Beauty, Luxury, Comforts, Relationships, Arts." },
+    7: { planet: "Ketu (☋ - South Node)", day: "Thursday/Tuesday (often mixed)", influence: "Spirituality, Detachment, Research, Introspection, Past Life Karma." },
+    8: { planet: "Saturn (Shani ♄)", day: "Saturday", influence: "Karma, Discipline, Delays, Structure, Responsibility, Hard Work." },
+    9: { planet: "Mars (Mangal ♂)", day: "Tuesday", influence: "Energy, Courage, Action, Initiative, Conflict, Drive." }
+};
+
+// Matrices: M[BirthNo - 1][LifePathNo - 1] 
+const ARCHETYPE_MATRIX = [
+    // Mission 1        2            3            4            5             6             7             8             9
+    ["Pure Pioneer", "Diplomatic Leader", "Expressive Leader", "Structured Leader", "Versatile Leader", "Responsible Leader", "Intuitive Leader", "Powerful Leader", "Serving Leader"], 
+    ["Leading Diplomat", "Pure Peacemaker", "Creative Partner", "Stable Partner", "Flexible Diplomat", "Nurturing Partner", "Analytical Partner", "Balanced Executive", "Supportive Humanitarian"], 
+    ["Original Artist", "Harmonious Creator", "Pure Expression", "Structured Artist", "Free-Form Creator", "Nurturing Creator", "Inspirational Analyst", "Charming Executive", "Expressive Humanitarian"], 
+    ["Leading Builder", "Cooperative Builder", "Social Organizer", "Pure Structure", "Rigid Freedom", "Nurturing Organizer", "Scientific Builder", "Executive Organizer", "Serving Builder"], 
+    ["Dynamic Individual", "Social Adventurer", "Artistic Communicator", "Controlled Change", "Pure Seeker", "Restless Nurturer", "Intellectual Traveler", "Powerful Pioneer", "Global Adventurer"], 
+    ["Authoritative Carer", "Pure Nurturer", "Joyful Healer", "Structured Provider", "Versatile Teacher", "Pure Service", "Intuitive Helper", "Executive Caretaker", "Serving Nurturer"], 
+    ["Pioneering Seeker", "Harmonious Analyst", "Inspirational Thinker", "Technical Analyst", "Adventurous Seeker", "Responsible Philosopher", "Pure Wisdom", "Strategic Thinker", "Compassionate Seeker"], 
+    ["Leading Executive", "Diplomatic Manager", "Charismatic Power", "Structured Authority", "Risk-Taking Leader", "Responsible Manager", "Analytical Executive", "Pure Power", "Serving Executive"], 
+    ["Pioneering Altruist", "Peacekeeping Server", "Expressive Altruist", "Structured Compassion", "Versatile Server", "Pure Compassion", "Intuitive Humanitarian", "Powerful Philanthropist", "Pure Service"] 
+];
+
+const CAREER_MATRIX = [
+    // Mission 1        2            3            4            5             6             7             8             9
+    ["Solo Entrepreneur", "Team Lead / PM", "Advertising Executive", "Independent Architect", "Sales Pioneer", "Community Organizer", "Intellectual Property Lawyer", "Corporate CEO", "Global Change Agent"], 
+    ["Diplomatic Negotiator", "Couples Counselor", "Event Planner / Host", "Collaborative Engineer", "HR Mediator", "Group Home Director", "Research Partner", "Financial Consultant", "International Aid Worker"], 
+    ["Film Director", "Public Relations", "Motivational Speaker", "Graphic Designer", "Travel Writer / Blogger", "Teacher of the Arts", "Literary Critic / Editor", "Marketing Executive", "Documentary Filmmaker"], 
+    ["General Contractor", "Office Administrator", "Technical Trainer", "Civil Engineer", "Operations Consultant", "Pediatric Nurse", "Technical Specialist", "Financial Controller", "Infrastructure Planner"], 
+    ["Expedition Leader", "Foreign Service", "Stand-up Comedian", "Data Analyst", "Investigative Reporter", "Travel Agent", "Scientific Researcher", "Corporate Trainer", "Global Humanitarian"], 
+    ["Primary Care Physician", "Marriage Counselor", "Music Therapist", "Home Builder", "Consumer Advocate", "Social Worker / Caretaker", "Veterinarian", "Hospital Administrator", "Nonprofit Director"], 
+    ["Academic Dean", "Research Facilitator", "Spiritual Teacher", "Cryptographer", "Philosophical Lecturer", "Librarian / Archivist", "Theoretical Scientist", "Investment Strategist", "Ethicist / Philosopher"], 
+    ["Business Owner", "Political Leader", "Corporate Lawyer", "Real Estate Developer", "Urban Planner", "Executive Recruiter", "M&A Analyst", "Stock Broker / Tycoon", "Political Lobbyist"], 
+    ["Pioneering Altruist", "Peacekeeping Server", "Expressive Altruist", "Structured Compassion", "Versatile Server", "Pure Compassion", "Intuitive Humanitarian", "Powerful Philanthropist", "Global Activist / UN Worker"] 
+];
+
 
 // --- API Endpoints ---
 
-// 1. Numerology Calculation Endpoint
-app.post('/api/numerology', async (req, res) => {
+// 1. Numerology Calculation Endpoint (Detailed Profile - Updated for Vedic Data)
+app.post('/api/numerology-profile', async (req, res) => {
     const { name, dob } = req.body;
 
     if (!name || !dob) {
         return res.status(400).send({ error: "Name and Date of Birth are required." });
     }
 
-    const numerologyPrompt = `
-        You are a highly skilled, engaging, and detailed numerologist. 
-        Analyze the following person based on their details. The entire response 
-        MUST be formatted using rich Markdown (headers, lists, bolding, italics) 
-        for optimal presentation.
+    try {
+        // Calculate necessary numbers (1-9)
+        const birthNo = calculateBirthNumber(dob);
+        const lifePathNo = calculateLifePathNumber(dob);
 
-        **Details:**
-        *   Full Name: ${name}
-        *   Date of Birth: ${dob}
+        // Lookup Archetype and Career based on matrices
+        const archetype = ARCHETYPE_MATRIX[birthNo - 1][lifePathNo - 1];
+        const career = CAREER_MATRIX[birthNo - 1][lifePathNo - 1];
+        
+        // Lookup Planetary Data
+        const birthPlanet = PLANETARY_MAPPING[birthNo];
+        const missionPlanet = PLANETARY_MAPPING[lifePathNo];
+        
+        if (!birthPlanet || !missionPlanet) {
+             throw new Error("Invalid numerology calculation result.");
+        }
+
+        const numerologyPrompt = `
+            You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer, specializing in blending Chaldean numerology with Graha (planetary) influences. Your analysis must be structured, professional, and insightful.
+            The entire response MUST be formatted using rich Markdown (headers, lists, bolding, italics) for optimal presentation.
+
+            **User Details:**
+            *   Full Name (at birth): ${name}
+            *   Date of Birth: ${dob}
+
+            **Numerological Coordinates:**
+            *   Personality/Birth Number: ${birthNo} (Governed by ${birthPlanet.planet})
+            *   Mission/Life Path Number: ${lifePathNo} (Governed by ${missionPlanet.planet})
+            *   Combined Archetype: ${archetype}
+            *   Best Fit Career Vocation: ${career}
+
+            **Instructions for Report Generation (Must Address All Points):**
+            1.  **Title the Report:** Use the Archetype as the main title (e.g., "# The ${archetype} Profile").
+            2.  **Section 1: Core Energies & Numbers.** Explain the meaning of the Personality Number (${birthNo}) and the Mission Number (${lifePathNo}) based on Chaldean Numerology.
+            3.  **Section 2: Planetary Influence Overlay.** Provide a detailed analysis of how the governing planets—${birthPlanet.planet} (for Personality) and ${missionPlanet.planet} (for Mission)—flavor the user's life. Discuss the timing, struggles, and inherent traits the planetary energy adds to the core numerical meaning.
+            4.  **Section 3: The Combined Archetype (${archetype}).** Provide a detailed analysis of what this specific combination means for the user's life path.
+            5.  **Section 4: Career & Vocation (${career}).** Offer insight into why the suggested career path of "${career}" is a powerful fit.
+            6.  **Section 5: Destiny Number (Based on Name).** Calculate the Destiny Number based on the letters of the name (${name}) and provide a detailed explanation of its influence (The 'Why').
+            7.  **Summary:** Provide a short, actionable summary titled "🚀 Navigating Your Path," including suggestions for utilizing their Planetary Day of Strength (e.g., utilize ${birthPlanet.day} for initiating new projects).
+        `;
+
+        const aiResponse = await ai.models.generateContent({
+            model: numerologyModel,
+            contents: numerologyPrompt,
+        });
+        
+        // Structure the response data for the Destiny Vault
+        res.json({ 
+            result: aiResponse.text,
+            metadata: {
+                name,
+                dob,
+                birthNo,
+                lifePathNo,
+                archetype,
+                birthPlanet,
+                missionPlanet,
+                career,
+                dateGenerated: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        console.error("Gemini Numerology Error:", error);
+        res.status(500).send({ error: "Failed to generate comprehensive profile from AI." });
+    }
+});
+
+
+// 2. Word/Number Profile Endpoint (Arbitrary Text Analysis)
+app.post('/api/word-profile', async (req, res) => {
+    const { input } = req.body; 
+
+    if (!input) {
+        return res.status(400).send({ error: "Input text or number is required." });
+    }
+
+    const wordPrompt = `
+        You are an expert numerological analyst focusing on the energy and vibrational frequency of words, names, or concepts.
+        Analyze the following input: "${input}".
 
         **Instructions:**
-        1.  Calculate and explain the **Life Path Number** (based on DOB).
-        2.  Calculate and explain the **Destiny Number** (based on Name).
-        3.  Provide a short summary section titled "🌟 Key Themes".
-        4.  Ensure the Markdown is visually appealing and easy to read.
+        1.  **Title:** Use the input as the title (e.g., "# Analysis of: ${input}").
+        2.  **Calculation:** Calculate the final single-digit numerological value for the input string (using standard methods). Show the calculation steps clearly in the response.
+        3.  **Core Vibration:** Explain the meaning of the resulting single digit in the context of the input (e.g., purpose, challenge, energy).
+        4.  **Vibrational Profile:** Describe the general 'vibe' or profile of the input, including its inherent strengths and potential challenges.
+        5.  **Actionable Insight:** Provide an actionable insight or prediction based on this vibrational analysis.
+        6.  The entire response MUST be formatted using clear, professional Markdown.
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: numerologyModel,
-            contents: numerologyPrompt,
+            contents: wordPrompt,
         });
         
-        // Gemini's text is already markdown, send it straight back.
         res.json({ result: response.text });
 
     } catch (error) {
-        console.error("Gemini Numerology Error:", error);
-        res.status(500).send({ error: "Failed to get numerology results from AI." });
+        console.error("Gemini Word Profile Error:", error);
+        res.status(500).send({ error: "Failed to generate word/number profile from AI." });
     }
 });
 
 
-// 2. Floating Chatbot Endpoint
+// 3. Floating Chatbot Endpoint (Unchanged logic)
 app.post('/api/chat', async (req, res) => {
     const { history, currentMessage } = req.body;
 
@@ -145,7 +303,7 @@ app.post('/api/chat', async (req, res) => {
             model: chatModel,
             contents: contents,
             config: {
-                systemInstruction: "You are a friendly and helpful AI assistant embedded in a numerology website. Answer any question, but keep your responses engaging and professional. You MUST use Markdown for all formatting."
+                systemInstruction: "You are the Destiny AI, a friendly and professional assistant embedded in a numerology website. Answer any question, but keep your responses engaging and professional. You MUST use Markdown for all formatting."
             }
         });
 
@@ -162,6 +320,7 @@ app.post('/api/chat', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
+
 
 --- END FILE: server.js ---
 
@@ -192,86 +351,292 @@ app.listen(PORT, () => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Numerology & Gemini AI</title>
+    <title>The Destiny Matrix | Advanced Numerology Profile</title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Google Fonts for Premium Theme -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for Icons (Input Enhancements & Vault) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <!-- Load marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Load html2pdf.js for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-
+    
+    <!-- 🗂️ Destiny Vault Trigger -->
+    <button id="vault-trigger" onclick="toggleVault()">
+        <i class="fas fa-box-open"></i> My Destiny Vault
+    </button>
+    
     <header>
-        <h1>Small AI Numerology Calculator</h1>
-        <p>Powered by Gemini. All results render beautiful Markdown.</p>
+        <h1>The Destiny Matrix</h1>
+        <p>Decode the hidden patterns of your life. Advanced Life Path Analysis powered by Small AI v2.</p>
+        <p class="credibility-line">Based on Chaldean Numerology, enhanced with AI & Vedic planetary wisdom.</p>
     </header>
 
     <main>
-        <!-- Numerology Input Section -->
-        <section id="numerology-app">
-            <h2>Calculate Your Destiny</h2>
-            <div class="input-group">
-                <label for="full-name">Full Name (at birth):</label>
-                <input type="text" id="full-name" placeholder="John Michael Doe">
+        <!-- 1. Comprehensive Profile Section -->
+        <section id="numerology-app" class="card">
+            <h2>Your Personal Destiny Profile</h2>
+            <p class="description">Calculate your Birth Number (Personality), Life Path (Mission), Archetype, and Best Fit Career Vocation.</p>
+            
+            <div class="input-container">
+                <div class="input-group">
+                    <label for="full-name">Full Name (at birth):</label>
+                    <div class="input-field-wrapper">
+                        <i class="input-icon fas fa-user-tag"></i>
+                        <input type="text" id="full-name" placeholder="John Michael Doe">
+                    </div>
+                    <p class="helper-text">Use the name exactly as shown on your birth certificate.</p>
+                </div>
+                <div class="input-group">
+                    <label for="dob">Date of Birth:</label>
+                    <div class="input-field-wrapper">
+                        <i class="input-icon fas fa-calendar-alt"></i>
+                        <input type="date" id="dob">
+                    </div>
+                    <p class="helper-text">Your exact date determines your Life Path number.</p>
+                </div>
             </div>
-            <div class="input-group">
-                <label for="dob">Date of Birth:</label>
-                <input type="date" id="dob">
-            </div>
-            <button onclick="calculateNumerology()">Get Analysis</button>
+            
+            <button id="calc-button" onclick="calculateNumerologyProfile()">Reveal My Numbers ✨</button>
             <p id="calc-status" class="status-message"></p>
             
-            <!-- Numerology Output Area (Renders Markdown) -->
-            <div id="numerology-output" class="markdown-container">
-                <p>Results will appear here, fully formatted by Gemini's markdown response.</p>
+            <!-- Output Wrapper starts hidden -->
+            <div id="numerology-output-wrapper" class="hidden">
+                <div class="export-controls">
+                    <button class="export-button" onclick="exportReport('numerology')">Export as PDF</button>
+                    <button class="export-button secondary-button" onclick="copyReportText('numerology')">Copy Text</button>
+                </div>
+                <div id="numerology-output" class="markdown-container">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Word/Number Analysis Section -->
+        <section id="word-analysis-app" class="card">
+            <h2>Word & Name Vibration Analyzer</h2>
+            <p class="description">Input any word, name, or number (e.g., 'Company Name,' 'Address') to discover its core vibrational profile.</p>
+
+            <div class="input-group full-width">
+                <label for="input-word">Name or Number to Analyze:</label>
+                <div class="input-field-wrapper">
+                    <i class="input-icon fas fa-magic"></i>
+                    <input type="text" id="input-word" placeholder="Project Phoenix, Apple Inc, My Street Address">
+                </div>
+                <p class="helper-text">Analyze anything from business names to important dates or concepts.</p>
+            </div>
+
+            <button onclick="analyzeWordProfile()">Analyze Vibration ⚡</button>
+            <p id="word-status" class="status-message"></p>
+            
+            <!-- Output Wrapper starts hidden -->
+            <div id="word-output-wrapper" class="hidden">
+                <div class="export-controls">
+                    <button class="export-button" onclick="exportReport('word')">Export as PDF</button>
+                    <button class="export-button secondary-button" onclick="copyReportText('word')">Copy Text</button>
+                </div>
+                <div id="word-output" class="markdown-container">
+                    <!-- Results will appear here -->
+                </div>
             </div>
         </section>
     </main>
 
+    <!-- 🗂️ Destiny Vault Side Panel (No-Login Dashboard) -->
+    <div id="destiny-vault" class="closed">
+        <div class="vault-header">
+            <h3><i class="fas fa-scroll"></i> My Destiny Vault</h3>
+            <button id="vault-close" onclick="toggleVault()">×</button>
+        </div>
+        <div id="vault-list">
+            <p style="text-align: center; color: #999;">Loading saved profiles...</p>
+        </div>
+        <div id="vault-footer">
+            Profiles are stored securely on this device.
+            <button class="export-button delete-btn" style="width:100%; margin-top: 10px;" onclick="clearVault()">Clear All Profiles</button>
+        </div>
+    </div>
+
+
     <!-- Floating AI Chatbot Container -->
     <div id="chatbot-container">
         <div id="chat-header" onclick="toggleChat()">
-            🤖 Ask Gemini Anything 💬
+            🤖 Destiny AI Chat 💬
         </div>
         <div id="chat-window" class="closed">
             <div id="chat-messages">
-                <!-- Initial Welcome Message (rendered via JS/Markdown) -->
+                <!-- Messages populate here -->
             </div>
             <div id="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Ask a question..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
+                <input type="text" id="chat-input" placeholder="Ask about numerology or life purpose..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
                 <button onclick="sendChatMessage()">Send</button>
             </div>
         </div>
     </div>
 
     <script>
-        // --- Global Chat History ---
+        // --- Global State ---
         let chatHistory = [];
+        const VAULT_KEY = 'destinyVaultProfiles';
+
+        // --- Utility Functions ---
 
         // Function to safely sanitize and render Markdown
         const renderMarkdown = (markdownText) => {
-            // marked.js converts the markdown string to an HTML string
-            // We use DOMPurify (if available) or basic sanitation to prevent XSS. 
-            // For simplicity in this demo, we rely on marked's default sanitation, 
-            // but in production, DOMPurify is highly recommended.
             return marked.parse(markdownText);
         };
+        
+        // Generates a simple unique ID (for vault tracking)
+        const generateId = () => Math.random().toString(36).substring(2, 9);
+        
+        // --- Destiny Vault (Local Storage) Logic ---
+        
+        function loadVault() {
+            try {
+                const profiles = JSON.parse(localStorage.getItem(VAULT_KEY) || '[]');
+                // Sort by creation date descending
+                return profiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            } catch (e) {
+                console.error("Error loading vault from local storage:", e);
+                return [];
+            }
+        }
 
-        // --- Numerology Logic ---
-        async function calculateNumerology() {
-            const name = document.getElementById('full-name').value;
-            const dob = document.getElementById('dob').value;
-            const outputDiv = document.getElementById('numerology-output');
-            const statusDiv = document.getElementById('calc-status');
+        function saveProfileToVault(profileData) {
+            const profiles = loadVault();
+            const newProfile = { 
+                ...profileData, 
+                id: generateId(), 
+                createdAt: new Date().toISOString()
+            };
+            profiles.unshift(newProfile);
+            // Limit the vault size (e.g., to 20 profiles)
+            localStorage.setItem(VAULT_KEY, JSON.stringify(profiles.slice(0, 20)));
+            renderVault();
+        }
 
-            if (!name || !dob) {
-                statusDiv.textContent = "Please enter both name and date of birth.";
+        function renderVault() {
+            const profiles = loadVault();
+            const listDiv = document.getElementById('vault-list');
+            listDiv.innerHTML = ''; 
+
+            if (profiles.length === 0) {
+                listDiv.innerHTML = '<p style="text-align: center; color: #999; margin-top: 30px;">Your Destiny Vault is empty. Generate a profile to save it!</p>';
                 return;
             }
 
-            statusDiv.textContent = "Analyzing data with Gemini...";
-            outputDiv.innerHTML = '<p>Loading...</p>';
+            profiles.forEach(profile => {
+                const date = new Date(profile.createdAt).toLocaleDateString();
+                const card = document.createElement('div');
+                card.classList.add('vault-profile-card');
+                card.innerHTML = `
+                    <h4>${profile.metadata.name}</h4>
+                    <p>DOB: ${profile.metadata.dob} | Life Path: ${profile.metadata.lifePathNo}</p>
+                    <p>Archetype: ${profile.metadata.archetype}</p>
+                    <p>Saved: ${date}</p>
+                    <div class="vault-actions">
+                        <button class="load-btn" onclick="loadProfileFromVault('${profile.id}')"><i class="fas fa-redo"></i> Reload</button>
+                        <button class="delete-btn" onclick="deleteProfileFromVault('${profile.id}')"><i class="fas fa-trash-alt"></i> Delete</button>
+                    </div>
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+        
+        function loadProfileFromVault(id) {
+            const profiles = loadVault();
+            const profile = profiles.find(p => p.id === id);
+
+            if (profile) {
+                // Populate the input fields (Name and DOB)
+                document.getElementById('full-name').value = profile.metadata.name;
+                const isoDate = new Date(profile.metadata.dob).toISOString().split('T')[0];
+                document.getElementById('dob').value = isoDate;
+                
+                // Render the report content
+                const outputWrapper = document.getElementById('numerology-output-wrapper');
+                const outputDiv = document.getElementById('numerology-output');
+                const statusDiv = document.getElementById('calc-status');
+                
+                outputDiv.innerHTML = renderMarkdown(profile.result);
+                outputWrapper.classList.remove('hidden');
+                
+                statusDiv.textContent = `Profile for ${profile.metadata.name} loaded from Vault.`;
+                statusDiv.style.color = 'var(--secondary-color)';
+                
+                // Close the vault
+                toggleVault();
+            } else {
+                alert("Profile not found.");
+                renderVault(); 
+            }
+        }
+        
+        function deleteProfileFromVault(id) {
+            if (confirm("Are you sure you want to permanently delete this profile?")) {
+                let profiles = loadVault();
+                profiles = profiles.filter(p => p.id !== id);
+                localStorage.setItem(VAULT_KEY, JSON.stringify(profiles));
+                renderVault();
+            }
+        }
+
+        function clearVault() {
+            if (confirm("Are you sure you want to delete ALL profiles from your Destiny Vault? This cannot be undone.")) {
+                localStorage.removeItem(VAULT_KEY);
+                renderVault();
+                alert("Destiny Vault cleared.");
+            }
+        }
+
+        function toggleVault() {
+            const vault = document.getElementById('destiny-vault');
+            vault.classList.toggle('open');
+            // Re-render the vault content every time it opens to ensure freshness
+            if (vault.classList.contains('open')) {
+                renderVault();
+            }
+        }
+
+        // Initialize vault rendering on page load
+        document.addEventListener('DOMContentLoaded', renderVault);
+        
+        
+        // --- Core Calculation Logic (Updated for Loading State & Saving) ---
+        async function calculateNumerologyProfile() {
+            const name = document.getElementById('full-name').value;
+            const dob = document.getElementById('dob').value;
+            const outputWrapper = document.getElementById('numerology-output-wrapper');
+            const outputDiv = document.getElementById('numerology-output');
+            const statusDiv = document.getElementById('calc-status');
+            const calcButton = document.getElementById('calc-button');
+            
+            outputWrapper.classList.add('hidden');
+
+            if (!name || !dob) {
+                statusDiv.textContent = "Please ensure both name and date of birth are entered.";
+                statusDiv.style.color = 'var(--accent-gold)'; 
+                return;
+            }
+
+            // Start Loading State UI
+            statusDiv.textContent = "Analyzing your Destiny Matrix...";
+            statusDiv.style.color = 'var(--secondary-color)';
+            outputDiv.innerHTML = '<p class="loading-animation">Calculating core vibration and planetary influences...</p>';
+            calcButton.classList.add('button-loading');
+            calcButton.innerHTML = '<span>Calculating Destiny...</span>'; // Set loading text
+            calcButton.disabled = true;
 
             try {
-                const response = await fetch('/api/numerology', {
+                const response = await fetch('/api/numerology-profile', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, dob })
@@ -279,36 +644,188 @@ app.listen(PORT, () => {
 
                 const data = await response.json();
 
-                if (data.error) {
-                    statusDiv.textContent = `Error: ${data.error}`;
-                    outputDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                if (data.error || !response.ok) {
+                    statusDiv.textContent = `Error: Profile generation failed.`;
+                    statusDiv.style.color = 'var(--accent-gold)'; 
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Profile generation failed.</p>`;
                     return;
                 }
 
-                statusDiv.textContent = "Analysis Complete!";
-                // RENDER THE MARKDOWN RESPONSE
+                statusDiv.textContent = "Profile Generated Successfully. Report saved to your Destiny Vault.";
+                statusDiv.style.color = 'var(--secondary-color)';
                 outputDiv.innerHTML = renderMarkdown(data.result);
+                outputWrapper.classList.remove('hidden'); 
+                
+                // NEW: Save the generated profile to the Destiny Vault
+                saveProfileToVault(data);
+
 
             } catch (error) {
-                statusDiv.textContent = "A network error occurred.";
-                outputDiv.innerHTML = `<p style="color: red;">Network Error. Check console.</p>`;
+                statusDiv.textContent = "A network error occurred. Check your connection.";
+                statusDiv.style.color = 'var(--accent-gold)';
+                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error.</p>`;
                 console.error('Calculation Error:', error);
+            } finally {
+                // End Loading State UI
+                calcButton.classList.remove('button-loading');
+                calcButton.innerHTML = 'Reveal My Numbers ✨'; // Reset button text
+                calcButton.disabled = false;
+            }
+        }
+        
+        // --- Word Analysis (Updated for Loading State) ---
+        async function analyzeWordProfile() {
+            const input = document.getElementById('input-word').value;
+            const outputWrapper = document.getElementById('word-output-wrapper');
+            const outputDiv = document.getElementById('word-output');
+            const statusDiv = document.getElementById('word-status');
+            const analyzeButton = document.querySelector('#word-analysis-app button');
+
+
+            outputWrapper.classList.add('hidden');
+
+            if (!input) {
+                statusDiv.textContent = "Please enter a word, name, or number to analyze.";
+                statusDiv.style.color = 'var(--accent-gold)';
+                return;
+            }
+
+            statusDiv.textContent = "Analyzing vibrational frequency...";
+            statusDiv.style.color = 'var(--secondary-color)';
+            outputDiv.innerHTML = '<p class="loading-animation">Calculating core vibration...</p>';
+            
+            analyzeButton.classList.add('button-loading');
+            analyzeButton.innerHTML = '<span>Calculating Vibration...</span>';
+            analyzeButton.disabled = true;
+
+
+            try {
+                const response = await fetch('/api/word-profile', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ input })
+                });
+
+                const data = await response.json();
+
+                if (data.error || !response.ok) {
+                    statusDiv.textContent = `Error: Analysis failed. Please try again.`;
+                    statusDiv.style.color = 'var(--accent-gold)';
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Analysis failed.</p>`;
+                    return; 
+                }
+
+                statusDiv.textContent = "Vibration Analysis Complete.";
+                statusDiv.style.color = 'var(--secondary-color)';
+                outputDiv.innerHTML = renderMarkdown(data.result);
+                outputWrapper.classList.remove('hidden');
+
+            } catch (error) {
+                statusDiv.textContent = "A network error occurred. Check your connection.";
+                statusDiv.style.color = 'var(--accent-gold)';
+                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error.</p>`;
+                console.error('Word Analysis Error:', error);
+            } finally {
+                analyzeButton.classList.remove('button-loading');
+                analyzeButton.innerHTML = 'Analyze Vibration ⚡';
+                analyzeButton.disabled = false;
             }
         }
 
+        // --- Export Functions (PDF/Copy logic kept the same) ---
+        // [getReportData, exportReport, copyReportText functions remain exactly as in the previous step]
 
-        // --- Chatbot Logic ---
+        function getReportData(type) {
+            if (type === 'numerology') {
+                return {
+                    element: document.getElementById('numerology-output'),
+                    name: document.getElementById('full-name').value || 'User',
+                    date: new Date().toISOString().slice(0, 10),
+                    reportType: 'Personal Destiny Matrix'
+                };
+            } else if (type === 'word') {
+                return {
+                    element: document.getElementById('word-output'),
+                    name: document.getElementById('input-word').value || 'Vibration',
+                    date: new Date().toISOString().slice(0, 10),
+                    reportType: 'Vibration Analysis'
+                };
+            }
+            return null;
+        }
 
+        function exportReport(type) {
+            const report = getReportData(type);
+            if (!report || !report.element.innerHTML.trim()) {
+                alert("Please generate a profile first before attempting to export.");
+                return;
+            }
+            const pdfContent = document.createElement('div');
+            pdfContent.style.padding = '20px';
+            pdfContent.style.fontFamily = 'Arial, sans-serif';
+
+            pdfContent.innerHTML = `
+                <div style="text-align: center; border-bottom: 2px solid #5D50FF; padding-bottom: 10px; margin-bottom: 20px;">
+                    <h1 style="color: #5D50FF; margin: 0;">The Destiny Matrix: ${report.reportType}</h1>
+                    <p style="margin: 5px 0 0 0; color: #666;">Report for: ${report.name} | Date: ${report.date}</p>
+                </div>
+            `;
+            pdfContent.appendChild(report.element.cloneNode(true));
+            
+            const filename = `${report.name.replace(/\s/g, '_')}_${report.reportType.replace(/\s/g, '_')}_${report.date}.pdf`;
+            
+            const options = {
+                margin: 10,
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, logging: false, dpi: 192, letterRendering: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().from(pdfContent).set(options).save();
+        }
+
+        async function copyReportText(type) {
+            const report = getReportData(type);
+            if (!report || !report.element.innerText.trim()) {
+                alert("Please generate a profile first before attempting to copy.");
+                return;
+            }
+
+            const textContent = report.element.innerText;
+
+            try {
+                await navigator.clipboard.writeText(textContent);
+                const statusDivId = type === 'numerology' ? 'calc-status' : 'word-status';
+                const statusDiv = document.getElementById(statusDivId);
+                
+                const originalText = statusDiv.textContent;
+                const originalColor = statusDiv.style.color;
+                
+                statusDiv.textContent = `Report text copied successfully!`;
+                statusDiv.style.color = 'var(--secondary-color)';
+                
+                setTimeout(() => {
+                    statusDiv.textContent = originalText;
+                    statusDiv.style.color = originalColor;
+                }, 3000);
+                
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text. Please try selecting the text manually.');
+            }
+        }
+
+        // --- Chatbot Logic (Unchanged) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
             chatWindow.classList.toggle('closed');
-            // If opening for the first time, add the welcome message
             if (chatHistory.length === 0 && !chatWindow.classList.contains('closed')) {
                 addMessageToChat(
-                    "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!",
+                    "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry.",
                     'model'
                 );
-                chatHistory.push({ sender: 'model', text: "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!" });
+                chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
             }
         }
         
@@ -316,12 +833,8 @@ app.listen(PORT, () => {
             const messagesDiv = document.getElementById('chat-messages');
             const messageElement = document.createElement('div');
             messageElement.classList.add('chat-message', sender);
-            
-            // RENDER MARKDOWN FOR EVERY CHAT MESSAGE
             messageElement.innerHTML = renderMarkdown(text); 
-            
             messagesDiv.appendChild(messageElement);
-            // Scroll to the bottom
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
@@ -331,12 +844,10 @@ app.listen(PORT, () => {
 
             if (!messageText) return;
 
-            // 1. Add user message to history and UI
             addMessageToChat(messageText, 'user');
             chatHistory.push({ sender: 'user', text: messageText });
             inputField.value = '';
 
-            // 2. Add loading indicator
             const messagesDiv = document.getElementById('chat-messages');
             const loadingElement = document.createElement('div');
             loadingElement.classList.add('chat-message', 'model', 'loading');
@@ -344,34 +855,31 @@ app.listen(PORT, () => {
             messagesDiv.appendChild(loadingElement);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         currentMessage: messageText, 
-                        history: chatHistory.slice(0, -1) // Send all history EXCEPT the current user message (which is included separately)
+                        history: chatHistory.slice(0, -1) 
                     })
                 });
 
                 const data = await response.json();
                 
-                // 3. Remove loading indicator
                 messagesDiv.removeChild(loadingElement);
 
                 if (data.error) {
-                    addMessageToChat(`[Error] ${data.error}`, 'model');
+                    addMessageToChat(`[Error] Failed to get response.`, 'model');
                     return;
                 }
 
-                // 4. Add Gemini response (fully rendered Markdown)
                 addMessageToChat(data.text, 'model');
                 chatHistory.push({ sender: 'model', text: data.text });
 
             } catch (error) {
                 console.error('Chat API Error:', error);
-                messagesDiv.removeChild(loadingElement);
+                if (loadingElement.parentNode) messagesDiv.removeChild(loadingElement);
                 addMessageToChat("Sorry, I hit a server error.", 'model');
             }
         }
@@ -379,219 +887,440 @@ app.listen(PORT, () => {
 </body>
 </html>
 
+
 --- END FILE: public\index.html ---
 
 --- START FILE: public\style.css ---
 
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f9;
-    color: #333;
+/* public/style.css - Advanced Dark Theme: Ancient Wisdom x Modern Intelligence */
+
+:root {
+    /* Theme Colors */
+    --primary-color: #3A1C71; /* Royal Purple */
+    --secondary-color: #6EE7E7; /* Soft Cyan/AI Accent */
+    --accent-gold: #F4C430; /* Gold/Amber */
+    
+    /* Background & Text */
+    --background-dark: #0B1026; /* Midnight Blue */
+    --card-background-semi: rgba(26, 31, 60, 0.6); /* Semi-transparent card base */
+    --text-light: #E0E0E0; 
+    --text-dark: #FFFFFF;
+    
+    /* Borders & Shadows */
+    --border-color: rgba(65, 55, 100, 0.4);
+    --shadow-deep: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
+/* Global Font Definition */
+body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, var(--background-dark) 0%, #1A1F3C 100%);
+    color: var(--text-light);
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-x: hidden; /* Prevent horizontal scroll when vault is open */
+}
+
+/* --- Header Polish --- */
 header {
-    background-color: #007bff;
-    color: white;
-    padding: 20px;
+    background: rgba(11, 16, 38, 0.8); 
+    padding: 40px 20px;
     text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden; 
+}
+
+/* Subtle background glow/texture for Hero Section */
+header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 10%, rgba(244, 196, 48, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+header h1 {
+    z-index: 1;
+    position: relative;
+    margin: 0;
+    font-size: clamp(2.5em, 5vw, 3.5em);
+    font-weight: 700;
+    color: var(--accent-gold);
+    font-family: 'Cormorant Garamond', serif;
+}
+header p {
+    z-index: 1;
+    position: relative;
+    margin-top: 5px;
+    opacity: 0.7;
+    font-size: 1.1em;
+}
+
+/* New Credibility Line Style */
+.credibility-line {
+    margin-top: 15px;
+    font-size: 0.9em;
+    color: var(--secondary-color);
+    font-weight: 500;
+    letter-spacing: 0.5px;
 }
 
 main {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    max-width: 1000px; 
+    margin: 30px auto;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
 }
 
-/* --- Numerology Styles --- */
-
-#numerology-app h2 {
-    border-bottom: 2px solid #ccc;
-    padding-bottom: 10px;
+/* --- Card Styles --- */
+.card {
+    background: var(--card-background-semi); 
+    backdrop-filter: blur(8px); 
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border-color);
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-deep);
 }
 
+.card h2 {
+    color: var(--secondary-color);
+    border-bottom: 2px solid rgba(110, 231, 231, 0.2);
+    padding-bottom: 15px;
+    margin-top: 0;
+    font-size: 2em;
+    font-family: 'Cormorant Garamond', serif;
+}
+
+/* --- Input Fields with Icons and Helper Text --- */
+.input-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
 .input-group {
-    margin-bottom: 15px;
+    flex: 1;
+    padding-top: 5px; 
+    position: relative;
+}
+.input-field-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.input-icon {
+    position: absolute;
+    left: 12px;
+    color: #888;
+    pointer-events: none;
+    font-size: 1.1em;
+}
+.helper-text {
+    font-size: 0.75em;
+    color: #999;
+    margin-top: 4px;
+    padding-left: 5px;
 }
 
-input[type="text"], input[type="date"] {
+input[type="text"], 
+input[type="date"] {
     width: 100%;
-    padding: 10px;
-    margin-top: 5px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: 14px 14px 14px 40px; /* Increased left padding for icon */
+    background-color: rgba(0, 0, 0, 0.3); 
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
     box-sizing: border-box;
-}
-
-button {
-    background-color: #28a745;
-    color: white;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 10px;
     font-size: 1em;
+    height: 48px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+input[type="text"]:focus, 
+input[type="date"]:focus {
+    border-color: var(--accent-gold);
+    outline: none;
+    box-shadow: 0 0 10px rgba(244, 196, 48, 0.5); /* Gold glow on focus */
+}
+.input-group.full-width input {
+    padding-left: 40px;
+}
+.input-group.full-width .input-icon {
+    left: 12px;
 }
 
-button:hover {
-    background-color: #218838;
+/* --- CTA Button & Loading State --- */
+button {
+    background-color: var(--accent-gold);
+    color: var(--background-dark); 
+    padding: 14px 30px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 15px;
+    font-size: 1.1em;
+    font-weight: 600;
+    transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden; /* For progress bar */
+}
+
+/* Glow Pulse effect */
+button:not(.export-button):hover {
+    background-color: #fce89f;
+    box-shadow: 0 0 15px rgba(244, 196, 48, 0.7), 0 0 5px rgba(244, 196, 48, 1) inset;
+}
+
+.button-loading {
+    cursor: not-allowed;
+    background-color: #f7d979; /* muted gold */
+    position: relative;
+    overflow: hidden;
+}
+.button-loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0;
+    background-color: rgba(0, 0, 0, 0.1);
+    animation: progress 5s forwards; /* 5s visual progress bar */
+    z-index: 1;
+}
+.button-loading span {
+    position: relative;
+    z-index: 2;
+}
+
+@keyframes progress {
+    0% { width: 0; }
+    100% { width: 100%; }
 }
 
 .status-message {
-    margin-top: 10px;
-    font-style: italic;
-    color: #666;
+    color: var(--secondary-color) !important;
 }
 
-/* --- Markdown Output Styling (Applies to both Numerology and Chat) --- */
+/* --- Export Controls --- */
+.export-controls {
+    margin-bottom: 15px;
+    text-align: right;
+}
+.export-button {
+    padding: 10px 18px;
+    font-size: 0.9em;
+    margin-left: 10px;
+    margin-top: 0; 
+    color: white; 
+    background-color: var(--primary-color);
+}
+.export-button:hover {
+    background-color: #553399;
+    box-shadow: 0 0 8px rgba(58, 28, 113, 0.8);
+}
+.export-controls .secondary-button {
+    background-color: #6c757d; 
+}
+.export-controls .secondary-button:hover {
+    background-color: #5a6268;
+}
+
+/* Hide report wrappers initially */
+#numerology-output-wrapper.hidden, #word-output-wrapper.hidden {
+    display: none;
+}
+
+/* --- Markdown Output Enhancements --- */
 .markdown-container {
+    padding: 25px;
+    border: 1px solid var(--border-color);
+    border-left: 6px solid var(--secondary-color);
+    background-color: rgba(58, 28, 113, 0.3); 
+    border-radius: 12px;
+    line-height: 1.7;
     margin-top: 20px;
-    padding: 15px;
-    border: 1px solid #e0e0e0;
-    border-left: 5px solid #007bff;
-    border-radius: 4px;
-    background-color: #f9f9ff;
 }
-
-/* Ensure Markdown elements render correctly */
 .markdown-container h1, .markdown-container h2, .markdown-container h3 {
-    color: #0056b3;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 5px;
-    margin-top: 20px;
+    color: var(--accent-gold); 
+    border-bottom: 1px solid rgba(244, 196, 48, 0.3);
+    padding-bottom: 8px;
+    margin-top: 30px;
+    font-family: 'Cormorant Garamond', serif;
 }
-.markdown-container ul, .markdown-container ol {
-    padding-left: 20px;
-}
-.markdown-container blockquote {
-    border-left: 4px solid #ccc;
-    padding-left: 10px;
-    color: #666;
-    margin: 10px 0;
-}
-.markdown-container strong {
-    font-weight: 700;
-    color: #333;
-}
-/* This ensures code blocks (if used by Gemini) render clearly */
-.markdown-container pre {
-    background-color: #eee;
-    padding: 10px;
-    border-radius: 4px;
-    overflow-x: auto;
-}
-
-
-/* --- Floating Chatbot Styles --- */
-
-#chatbot-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 350px;
-    z-index: 1000; /* Ensure it floats above everything */
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-#chat-header {
-    background-color: #8c52ff;
-    color: white;
-    padding: 15px;
-    text-align: center;
-    cursor: pointer;
-    font-weight: bold;
-    user-select: none;
-}
-
-#chat-window {
-    background: white;
-    height: 400px;
-    display: flex;
-    flex-direction: column;
-    transition: all 0.3s ease-in-out;
-}
-
-#chat-window.closed {
-    height: 0;
-    padding: 0;
-    border: none;
-    opacity: 0;
-    pointer-events: none;
-}
-
-#chat-messages {
-    flex-grow: 1;
-    padding: 10px;
-    overflow-y: auto;
-    border-bottom: 1px solid #eee;
-}
-
-.chat-message {
-    margin-bottom: 10px;
-    padding: 8px 12px;
-    border-radius: 18px;
-    max-width: 85%;
-    line-height: 1.4;
-}
-
-/* User Messages */
-.chat-message.user {
-    background-color: #007bff;
-    color: white;
-    margin-left: auto;
-    border-bottom-right-radius: 2px;
-}
-
-/* AI Model Messages */
-.chat-message.model {
-    background-color: #e6e6e6;
-    color: #333;
-    margin-right: auto;
-    border-bottom-left-radius: 2px;
-}
-
-/* Loading Indicator */
-.chat-message.loading {
-    background-color: #ffe0b2;
+.loading-animation {
+    color: var(--secondary-color);
     font-style: italic;
-    animation: pulse 1.5s infinite;
+    animation: loading-pulse 1.5s infinite;
+    text-align: center;
 }
-
-@keyframes pulse {
+@keyframes loading-pulse {
     0% { opacity: 0.5; }
     50% { opacity: 1; }
     100% { opacity: 0.5; }
 }
 
 
-#chat-input-area {
+/* --- Destiny Vault Side Panel Styles --- */
+#vault-trigger {
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    padding: 12px 20px;
+    background-color: var(--primary-color);
+    color: var(--text-dark);
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-deep);
+    z-index: 1010;
+    transition: background-color 0.2s;
+}
+#vault-trigger:hover {
+    background-color: #553399;
+}
+
+#destiny-vault {
+    position: fixed;
+    top: 0;
+    right: -400px; /* Hidden state */
+    width: 350px;
+    max-width: 90vw;
+    height: 100%;
+    background: #11152a; 
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    transition: right 0.4s ease-in-out;
     display: flex;
-    padding: 10px;
-    border-top: 1px solid #ddd;
+    flex-direction: column;
+}
+#destiny-vault.open {
+    right: 0;
 }
 
-#chat-input {
-    flex-grow: 1;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    margin-right: 5px;
-}
-
-#chat-input-area button {
-    padding: 8px 15px;
-    background-color: #8c52ff;
+.vault-header {
+    padding: 20px;
+    background: var(--primary-color);
     color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
-#chat-input-area button:hover {
-    background-color: #7a46e0;
+.vault-header h3 {
+    margin: 0;
+    font-family: 'Cormorant Garamond', serif;
+}
+#vault-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 5px;
+}
+#vault-close:hover {
+    color: var(--accent-gold);
+}
+
+#vault-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+/* Scrollbar styling for dark mode */
+#vault-list::-webkit-scrollbar {
+    width: 8px;
+}
+#vault-list::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+#vault-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.vault-profile-card {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border-left: 4px solid var(--secondary-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.vault-profile-card h4 {
+    margin: 0;
+    color: var(--accent-gold);
+    font-size: 1.1em;
+}
+.vault-profile-card p {
+    margin: 0;
+    font-size: 0.85em;
+    color: #aaa;
+}
+.vault-actions {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+}
+.vault-actions button {
+    flex-grow: 1;
+    padding: 8px 10px;
+    font-size: 0.85em;
+    margin-top: 0;
+}
+.vault-actions .load-btn {
+    background-color: var(--secondary-color);
+    color: var(--background-dark);
+}
+.vault-actions .delete-btn {
+    background-color: #8c0000; /* Dark red for deletion */
+}
+.vault-actions .delete-btn:hover {
+    background-color: #b30000;
+}
+
+#vault-footer {
+    padding: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    font-size: 0.8em;
+    color: #666;
+}
+
+/* --- Mobile Adjustments --- */
+@media (max-width: 768px) {
+    #destiny-vault {
+        width: 100%;
+        right: -100vw;
+    }
+    #destiny-vault.open {
+        right: 0;
+    }
+    #vault-trigger {
+        top: 10px;
+        right: 10px;
+        padding: 8px 15px;
+        font-size: 0.9em;
+    }
+    /* Move chat to the left to avoid clash with vault on mobile */
+    #chatbot-container {
+        right: auto;
+        left: 15px;
+    }
 }
 
 --- END FILE: public\style.css ---

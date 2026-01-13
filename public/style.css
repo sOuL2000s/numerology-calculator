@@ -1,71 +1,133 @@
-/* public/style.css - Refined for Production Grade, Minimal Aesthetics, and Full Responsiveness */
+/* public/style.css - Advanced Dark Theme: Ancient Wisdom x Modern Intelligence */
 
 :root {
-    --primary-color: #5D50FF; /* Soft Violet/Blue for branding */
-    --secondary-color: #00A896; /* Teal accent */
-    --text-color: #333;
-    --background-light: #f9f9fc;
-    --card-background: #ffffff;
-    --shadow-light: 0 2px 10px rgba(0, 0, 0, 0.08);
+    /* Theme Colors */
+    --primary-color: #3A1C71; /* Royal Purple */
+    --secondary-color: #6EE7E7; /* Soft Cyan/AI Accent */
+    --accent-gold: #F4C430; /* Gold/Amber */
+    
+    /* Background & Text */
+    --background-dark: #0B1026; /* Midnight Blue */
+    --card-background-semi: rgba(26, 31, 60, 0.6); /* Semi-transparent card base */
+    --text-light: #E0E0E0; 
+    --text-dark: #FFFFFF;
+    
+    /* Borders & Shadows */
+    --border-color: rgba(65, 55, 100, 0.4);
+    --shadow-deep: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
+/* Global Font Definition */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Poppins', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: var(--background-light);
-    color: var(--text-color);
-    line-height: 1.6;
+    background: linear-gradient(135deg, var(--background-dark) 0%, #1A1F3C 100%);
+    color: var(--text-light);
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-x: hidden; /* Prevent horizontal scroll when vault is open */
 }
 
-header {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 30px 20px;
-    text-align: center;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+/* --- VAULT OPEN STATE MANAGEMENT --- */
+/* When the vault is open, dim the main content and hide the trigger button */
+body.vault-open main,
+body.vault-open header {
+    filter: blur(2px) grayscale(30%);
+    pointer-events: none;
+    user-select: none;
+    transition: filter 0.3s ease;
 }
+
+body.vault-open #vault-trigger {
+    opacity: 0;
+    pointer-events: none;
+}
+/* Ensure the chatbot remains accessible but is slightly blurred/dimmed */
+body.vault-open #chatbot-container {
+     filter: blur(1px) brightness(0.8);
+}
+
+
+/* --- Header Polish --- */
+header {
+    background: rgba(11, 16, 38, 0.8); 
+    padding: 40px 20px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden; 
+}
+
+/* Subtle background glow/texture for Hero Section */
+header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 10%, rgba(244, 196, 48, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
 header h1 {
+    z-index: 1;
+    position: relative;
     margin: 0;
-    font-size: clamp(1.8em, 4vw, 2.5em); /* Responsive font size */
-    font-weight: 600;
+    font-size: clamp(2.5em, 5vw, 3.5em);
+    font-weight: 700;
+    color: var(--accent-gold);
+    font-family: 'Cormorant Garamond', serif;
 }
 header p {
+    z-index: 1;
+    position: relative;
     margin-top: 5px;
-    opacity: 0.9;
+    opacity: 0.7;
+    font-size: 1.1em;
+}
+
+/* New Credibility Line Style */
+.credibility-line {
+    margin-top: 15px;
+    font-size: 0.9em;
+    color: var(--secondary-color);
+    font-weight: 500;
+    letter-spacing: 0.5px;
 }
 
 main {
-    max-width: 1200px; /* Increased max width for desktop viewing */
+    max-width: 1000px; 
     margin: 30px auto;
     padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
 }
 
-/* --- Card Styles (Containers for both sections) --- */
+/* --- Card Styles --- */
 .card {
-    background: var(--card-background);
+    background: var(--card-background-semi); 
+    backdrop-filter: blur(8px); 
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border-color);
     padding: 30px;
-    border-radius: 12px;
-    box-shadow: var(--shadow-light);
-    margin-bottom: 30px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-deep);
 }
 
 .card h2 {
-    color: var(--primary-color);
-    border-bottom: 2px solid #e0e0f0;
-    padding-bottom: 10px;
+    color: var(--secondary-color);
+    border-bottom: 2px solid rgba(110, 231, 231, 0.2);
+    padding-bottom: 15px;
     margin-top: 0;
-    font-size: 1.8em;
+    font-size: 2em;
+    font-family: 'Cormorant Garamond', serif;
 }
 
-.description {
-    color: #666;
-    font-style: italic;
-    margin-bottom: 20px;
-    font-size: 0.95em;
-}
-
-/* Flexbox for input fields */
+/* --- Input Fields with Icons and Helper Text --- */
 .input-container {
     display: flex;
     gap: 20px;
@@ -73,83 +135,108 @@ main {
 }
 .input-group {
     flex: 1;
-    /* Ensure consistent vertical padding within the group */
     padding-top: 5px; 
+    position: relative;
 }
-.input-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-    color: #555;
-    line-height: 1.2; /* Explicitly set line height for consistency */
+.input-field-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.input-icon {
+    position: absolute;
+    left: 12px;
+    color: #888;
+    pointer-events: none;
+    font-size: 1.1em;
+}
+.helper-text {
+    font-size: 0.75em;
+    color: #999;
+    margin-top: 4px;
+    padding-left: 5px;
 }
 
 input[type="text"], 
 input[type="date"] {
     width: 100%;
-    padding: 12px;
-    margin-top: 0px; /* Crucial: Ensure inputs sit right below the label */
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    padding: 14px 14px 14px 40px; /* Increased left padding for icon */
+    background-color: rgba(0, 0, 0, 0.3); 
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
     box-sizing: border-box;
     font-size: 1em;
-    height: 44px; /* Explicit height ensures they match perfectly */
-    color: var(--text-color);
-    transition: border-color 0.3s;
-    
-    /* Date Input specific overrides for styling consistency */
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
+    height: 48px;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
-
 input[type="text"]:focus, 
 input[type="date"]:focus {
-    border-color: var(--secondary-color);
+    border-color: var(--accent-gold);
     outline: none;
-    box-shadow: 0 0 0 2px rgba(0, 168, 150, 0.2);
+    box-shadow: 0 0 10px rgba(244, 196, 48, 0.5); /* Gold glow on focus */
+}
+.input-group.full-width input {
+    padding-left: 40px;
+}
+.input-group.full-width .input-icon {
+    left: 12px;
 }
 
-/* Styling for placeholder/invalid date input text */
-input[type="date"]:invalid {
-    color: #999; 
-}
-input[type="date"]::-webkit-datetime-edit-month-field,
-input[type="date"]::-webkit-datetime-edit-day-field,
-input[type="date"]::-webkit-datetime-edit-year-field {
-    color: var(--text-color); 
-}
-
-/* Primary Button Styling */
+/* --- CTA Button & Loading State --- */
 button {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 12px 25px;
+    background-color: var(--accent-gold);
+    color: var(--background-dark); 
+    padding: 14px 30px;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
     margin-top: 15px;
     font-size: 1.1em;
-    font-weight: 500;
-    transition: background-color 0.3s, transform 0.1s;
+    font-weight: 600;
+    transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden; /* For progress bar */
 }
 
-button:hover {
-    background-color: #4c40e0;
+/* Glow Pulse effect */
+button:not(.export-button):hover {
+    background-color: #fce89f;
+    box-shadow: 0 0 15px rgba(244, 196, 48, 0.7), 0 0 5px rgba(244, 196, 48, 1) inset;
 }
 
-button:active {
-    transform: scale(0.99);
+.button-loading {
+    cursor: not-allowed;
+    background-color: #f7d979; /* muted gold */
+    position: relative;
+    overflow: hidden;
+}
+.button-loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0;
+    background-color: rgba(0, 0, 0, 0.1);
+    animation: progress 5s forwards; /* 5s visual progress bar */
+    z-index: 1;
+}
+.button-loading span {
+    position: relative;
+    z-index: 2;
+}
+
+@keyframes progress {
+    0% { width: 0; }
+    100% { width: 100%; }
 }
 
 .status-message {
-    margin-top: 15px;
-    font-weight: 500;
-    padding: 5px 0;
-    min-height: 20px; /* Prevent layout shift */
+    color: var(--secondary-color) !important;
 }
 
 /* --- Export Controls --- */
@@ -158,14 +245,19 @@ button:active {
     text-align: right;
 }
 .export-button {
-    padding: 8px 15px;
+    padding: 10px 18px;
     font-size: 0.9em;
     margin-left: 10px;
-    margin-top: 0; /* Override default button margin */
-    width: auto; /* Ensure they don't take full width on desktop */
+    margin-top: 0; 
+    color: white; 
+    background-color: var(--primary-color);
+}
+.export-button:hover {
+    background-color: #553399;
+    box-shadow: 0 0 8px rgba(58, 28, 113, 0.8);
 }
 .export-controls .secondary-button {
-    background-color: #6c757d; /* Gray color for copy button */
+    background-color: #6c757d; 
 }
 .export-controls .secondary-button:hover {
     background-color: #5a6268;
@@ -176,43 +268,25 @@ button:active {
     display: none;
 }
 
-/* --- Markdown Output Styling (Critical for PDF layout) --- */
+/* --- Markdown Output Enhancements --- */
 .markdown-container {
-    margin-top: 0; /* Remove top margin from previous versions */
-    padding: 20px;
-    border: 1px solid #e0e0e0;
+    padding: 25px;
+    border: 1px solid var(--border-color);
     border-left: 6px solid var(--secondary-color);
-    border-radius: 8px;
-    background-color: #f0faff; 
+    background-color: rgba(58, 28, 113, 0.3); 
+    border-radius: 12px;
     line-height: 1.7;
+    margin-top: 20px;
 }
-
 .markdown-container h1, .markdown-container h2, .markdown-container h3 {
-    color: var(--primary-color);
-    border-bottom: 1px solid #d0d0f0;
-    padding-bottom: 5px;
-    margin-top: 25px;
-}
-.markdown-container p, .markdown-container li {
-    font-size: 1.05em;
-}
-.markdown-container ul, .markdown-container ol {
-    padding-left: 25px;
-}
-.markdown-container blockquote {
-    border-left: 5px solid var(--secondary-color);
-    background-color: #f7fff7;
-    padding: 10px 15px;
-    color: #444;
-    margin: 15px 0;
-    border-radius: 4px;
-}
-.markdown-container strong {
-    font-weight: 700;
-    color: #000;
+    color: var(--accent-gold); 
+    border-bottom: 1px solid rgba(244, 196, 48, 0.3);
+    padding-bottom: 8px;
+    margin-top: 30px;
+    font-family: 'Cormorant Garamond', serif;
 }
 .loading-animation {
-    color: #666;
+    color: var(--secondary-color);
     font-style: italic;
     animation: loading-pulse 1.5s infinite;
     text-align: center;
@@ -224,41 +298,200 @@ button:active {
 }
 
 
-/* --- Floating Chatbot Styles (Production-Grade) --- */
+/* --- Destiny Vault Side Panel Styles --- */
+#vault-trigger {
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    padding: 12px 20px;
+    background-color: var(--primary-color);
+    color: var(--text-dark);
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-deep);
+    z-index: 1010;
+    transition: background-color 0.2s;
+}
+#vault-trigger:hover {
+    background-color: #553399;
+}
 
+#destiny-vault {
+    position: fixed;
+    top: 0;
+    right: -400px; /* Hidden state */
+    width: 350px;
+    max-width: 90vw;
+    height: 100%;
+    background: #11152a; 
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    transition: right 0.4s ease-in-out;
+    display: flex;
+    flex-direction: column;
+}
+#destiny-vault.open {
+    right: 0;
+}
+
+.vault-header {
+    padding: 20px;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.vault-header h3 {
+    margin: 0;
+    font-family: 'Cormorant Garamond', serif;
+}
+#vault-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 5px;
+}
+#vault-close:hover {
+    color: var(--accent-gold);
+}
+
+#vault-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+/* Scrollbar styling for dark mode */
+#vault-list::-webkit-scrollbar {
+    width: 8px;
+}
+#vault-list::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+#vault-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.vault-profile-card {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border-left: 4px solid var(--secondary-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.vault-profile-card h4 {
+    margin: 0;
+    color: var(--accent-gold);
+    font-size: 1.1em;
+}
+.vault-profile-card p {
+    margin: 0;
+    font-size: 0.85em;
+    color: #aaa;
+}
+.vault-profile-card .small-meta {
+    font-size: 0.75em;
+    color: #666;
+}
+.vault-actions {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+}
+.vault-actions button {
+    flex-grow: 1;
+    padding: 8px 10px;
+    font-size: 0.85em;
+    margin-top: 0;
+}
+.vault-actions .load-btn {
+    background-color: var(--secondary-color);
+    color: var(--background-dark);
+}
+.vault-actions .delete-btn {
+    background-color: #8c0000; /* Dark red for deletion */
+}
+.vault-actions .delete-btn:hover {
+    background-color: #b30000;
+}
+
+#vault-footer {
+    padding: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    font-size: 0.8em;
+    color: #666;
+}
+
+/* Mobile adjustments for vault */
+@media (max-width: 768px) {
+    #destiny-vault {
+        width: 100%;
+        right: -100vw;
+    }
+    #destiny-vault.open {
+        right: 0;
+    }
+    #vault-trigger {
+        top: 10px;
+        right: 10px;
+        padding: 8px 15px;
+        font-size: 0.9em;
+    }
+    /* Move chat to the left to avoid clash with vault on mobile */
+    #chatbot-container {
+        right: auto;
+        left: 15px;
+    }
+}
+
+/* --- Floating AI Chatbot Styles (New/Improved) --- */
 #chatbot-container {
     position: fixed;
-    bottom: 25px;
-    right: 25px;
-    width: clamp(300px, 90vw, 380px); /* Responsive width */
-    z-index: 1000;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    max-height: 80vh;
+    box-shadow: var(--shadow-deep);
     border-radius: 12px;
     overflow: hidden;
-    transition: all 0.3s ease;
+    z-index: 990;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.3s ease-in-out;
 }
 
 #chat-header {
-    background-color: var(--secondary-color); 
+    background-color: var(--primary-color);
     color: white;
-    padding: 18px;
-    text-align: center;
+    padding: 15px 20px;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 600;
     font-size: 1.1em;
-    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 2px solid var(--secondary-color);
     transition: background-color 0.2s;
 }
+
 #chat-header:hover {
-    background-color: #008f7e;
+    background-color: #553399;
 }
 
 #chat-window {
-    background: white;
-    height: 450px; 
     display: flex;
     flex-direction: column;
-    transition: height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    height: 400px; 
+    background-color: #1A1F3C; /* Dark card background */
+    transition: all 0.3s ease-in-out;
 }
 
 #chat-window.closed {
@@ -268,119 +501,112 @@ button:active {
     opacity: 0;
     pointer-events: none;
 }
+#chat-window:not(.closed) {
+    opacity: 1;
+}
 
 #chat-messages {
     flex-grow: 1;
-    padding: 15px;
     overflow-y: auto;
-    border-bottom: 1px solid #eee;
-    background-color: #fafafa;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Chat Scrollbar styling */
+#chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+#chat-messages::-webkit-scrollbar-thumb {
+    background-color: rgba(110, 231, 231, 0.4);
+    border-radius: 3px;
+}
+#chat-messages::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .chat-message {
-    margin-bottom: 12px;
-    padding: 10px 15px;
-    border-radius: 20px;
     max-width: 85%;
-    line-height: 1.5;
+    padding: 10px 15px;
+    border-radius: 15px;
     word-wrap: break-word;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    font-size: 0.9em;
 }
 
-/* User Messages */
+/* User Messages - Gold/Dark contrast */
 .chat-message.user {
-    background-color: var(--primary-color);
-    color: white;
-    margin-left: auto;
+    align-self: flex-end;
+    background-color: var(--accent-gold);
+    color: var(--background-dark);
     border-bottom-right-radius: 4px;
 }
 
-/* AI Model Messages */
+/* Model Messages - Cyan/Light contrast */
 .chat-message.model {
-    background-color: #e8f0ff; 
-    color: var(--text-color);
-    margin-right: auto;
+    align-self: flex-start;
+    background-color: rgba(110, 231, 231, 0.2); 
+    color: var(--text-light);
+    border: 1px solid rgba(110, 231, 231, 0.4);
     border-bottom-left-radius: 4px;
 }
-.chat-message.model strong {
-    color: var(--primary-color);
+
+.chat-message.model h3, .chat-message.model strong {
+    color: var(--secondary-color);
+    margin-top: 5px;
 }
 
-
-/* Loading Indicator */
 .chat-message.loading {
-    background-color: #fffde7;
+    background: rgba(255, 255, 255, 0.1);
+    color: #999;
     font-style: italic;
     animation: pulse 1.5s infinite;
+    align-self: flex-start;
+}
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
 }
 
 #chat-input-area {
     display: flex;
-    padding: 15px;
-    border-top: 1px solid #ddd;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #1A1F3C;
 }
 
-#chat-input {
+#chat-input-area input {
     flex-grow: 1;
     padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    margin-right: 10px;
-    font-size: 1em;
+    border: 1px solid #333;
+    border-radius: 8px;
+    margin-right: 8px;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    font-size: 0.9em;
+    height: 40px;
+    box-sizing: border-box;
+    padding-left: 12px;
 }
 
 #chat-input-area button {
-    padding: 8px 20px;
     background-color: var(--secondary-color);
-    font-size: 1em;
+    color: var(--background-dark);
+    padding: 0 15px;
+    border-radius: 8px;
+    font-size: 0.9em;
     margin-top: 0;
-}
-#chat-input-area button:hover {
-    background-color: #008f7e;
+    height: 40px;
+    width: 70px; /* fixed width for better alignment */
 }
 
-
-/* --- Full Mobile Responsiveness --- */
+/* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
 @media (max-width: 768px) {
-    main {
-        padding: 0 10px;
-        margin: 20px auto;
-    }
-    
-    .card {
-        padding: 20px 15px;
-    }
-
-    /* Stack inputs vertically on smaller screens */
-    .input-container {
-        flex-direction: column;
-        gap: 15px;
-    }
-
-    /* Make primary buttons full width on small screens */
-    button:not(.export-button) {
-        width: 100%;
-        margin-top: 10px;
-    }
-    
-    /* Adjust export controls for centered mobile view */
-    .export-controls {
-        text-align: center;
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    .export-button {
-        /* Ensure two buttons fit side-by-side with padding */
-        width: calc(50% - 15px); 
-        margin: 5px;
-        font-size: 0.9em;
-        padding: 10px;
-    }
-    
-    /* Chatbot position adjustment */
     #chatbot-container {
-        bottom: 15px;
-        right: 15px;
+        width: 90vw;
+        left: 5vw;
+        right: auto;
+        bottom: 10px;
     }
 }

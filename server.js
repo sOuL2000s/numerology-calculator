@@ -10,6 +10,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// =========================================================
+// FIX: Initialize GoogleGenAI client and define models
+// =========================================================
+// The client looks for the API key in process.env.GEMINI_API_KEY or process.env.AI_API_KEY
+// Assuming GEMINI_API_KEY is set in your .env file
+const ai = new GoogleGenAI({}); 
+
+// Define model names used in API calls
+const numerologyModel = "gemini-2.5-flash"; 
+const chatModel = "gemini-2.5-flash"; 
+// =========================================================
+
 // Setup paths for serving
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,25 +31,27 @@ const PUBLIC_PATH = path.join(__dirname, 'public'); // Define the public path
 app.use(express.json());
 
 // 1. Static File Serving: Point ALL static asset requests to the /public folder
-app.use(express.static(PUBLIC_PATH)); // <-- FIX 1: Point to /public
+app.use(express.static(PUBLIC_PATH)); 
 
 // 2. Explicit Root Route: Serve index.html from the /public folder
 app.get('/', (req, res) => {
-    res.sendFile(path.join(PUBLIC_PATH, 'index.html')); // <-- FIX 2: Point to /public/index.html
+    res.sendFile(path.join(PUBLIC_PATH, 'index.html')); 
 });
 
-// --- FIX: Explicit Route for Root Path ---
+// --- REDUNDANT ROUTE REMOVED ---
+// The following block was redundant and was pointing to the wrong index.html location.
+/*
 app.get('/', (req, res) => {
-    // __dirname was defined at the top of server.js using fileURLToPath/path.dirname
     res.sendFile(path.join(__dirname, 'index.html'));
 });
+*/
 
 // --- API Endpoints ---
 
 // 1. Numerology Calculation Endpoint
 app.post('/api/numerology', async (req, res) => {
     const { name, dob } = req.body;
-
+// ... (rest of endpoint logic remains the same, but now 'ai' is defined)
     if (!name || !dob) {
         return res.status(400).send({ error: "Name and Date of Birth are required." });
     }
@@ -78,7 +92,7 @@ app.post('/api/numerology', async (req, res) => {
 // 2. Floating Chatbot Endpoint
 app.post('/api/chat', async (req, res) => {
     const { history, currentMessage } = req.body;
-
+// ... (rest of endpoint logic remains the same, but now 'ai' and 'chatModel' are defined)
     if (!currentMessage) {
         return res.status(400).send({ error: "Message is required." });
     }

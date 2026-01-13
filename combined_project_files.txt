@@ -1,0 +1,597 @@
+
+--- START FILE: .gitignore ---
+
+# ---------------------------------
+# Node.js Dependencies
+# ---------------------------------
+/node_modules
+
+# ---------------------------------
+# Secrets and Environment Variables
+# ---------------------------------
+# NEVER commit your API key or secrets
+.env
+
+# ---------------------------------
+# Logs and Debugging
+# ---------------------------------
+npm-debug.log*
+.DS_Store
+package-lock.json
+
+
+--- END FILE: .gitignore ---
+
+--- START FILE: package.json ---
+
+{
+  "name": "numerology-site",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",  
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  }
+}
+
+--- END FILE: package.json ---
+
+--- START FILE: server.js ---
+
+// server.js
+import express from 'express';
+import dotenv from 'dotenv';
+import { GoogleGenAI } from '@google/genai';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// --- Setup ---
+dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Setup paths for serving
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PUBLIC_PATH = path.join(__dirname, 'public'); // Define the public path
+
+// Middleware
+app.use(express.json());
+
+// 1. Static File Serving: Point ALL static asset requests to the /public folder
+app.use(express.static(PUBLIC_PATH)); // <-- FIX 1: Point to /public
+
+// 2. Explicit Root Route: Serve index.html from the /public folder
+app.get('/', (req, res) => {
+    res.sendFile(path.join(PUBLIC_PATH, 'index.html')); // <-- FIX 2: Point to /public/index.html
+});
+
+// --- FIX: Explicit Route for Root Path ---
+app.get('/', (req, res) => {
+    // __dirname was defined at the top of server.js using fileURLToPath/path.dirname
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// --- API Endpoints ---
+
+// 1. Numerology Calculation Endpoint
+app.post('/api/numerology', async (req, res) => {
+    const { name, dob } = req.body;
+
+    if (!name || !dob) {
+        return res.status(400).send({ error: "Name and Date of Birth are required." });
+    }
+
+    const numerologyPrompt = `
+        You are a highly skilled, engaging, and detailed numerologist. 
+        Analyze the following person based on their details. The entire response 
+        MUST be formatted using rich Markdown (headers, lists, bolding, italics) 
+        for optimal presentation.
+
+        **Details:**
+        *   Full Name: ${name}
+        *   Date of Birth: ${dob}
+
+        **Instructions:**
+        1.  Calculate and explain the **Life Path Number** (based on DOB).
+        2.  Calculate and explain the **Destiny Number** (based on Name).
+        3.  Provide a short summary section titled "🌟 Key Themes".
+        4.  Ensure the Markdown is visually appealing and easy to read.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: numerologyModel,
+            contents: numerologyPrompt,
+        });
+        
+        // Gemini's text is already markdown, send it straight back.
+        res.json({ result: response.text });
+
+    } catch (error) {
+        console.error("Gemini Numerology Error:", error);
+        res.status(500).send({ error: "Failed to get numerology results from AI." });
+    }
+});
+
+
+// 2. Floating Chatbot Endpoint
+app.post('/api/chat', async (req, res) => {
+    const { history, currentMessage } = req.body;
+
+    if (!currentMessage) {
+        return res.status(400).send({ error: "Message is required." });
+    }
+    
+    // Convert client history format to Gemini's format
+    const contents = history.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+    }));
+    contents.push({ role: 'user', parts: [{ text: currentMessage }] });
+
+    try {
+        const response = await ai.models.generateContent({
+            model: chatModel,
+            contents: contents,
+            config: {
+                systemInstruction: "You are a friendly and helpful AI assistant embedded in a numerology website. Answer any question, but keep your responses engaging and professional. You MUST use Markdown for all formatting."
+            }
+        });
+
+        res.json({ text: response.text });
+        
+    } catch (error) {
+        console.error("Gemini Chat Error:", error);
+        res.status(500).send({ error: "Failed to communicate with the chatbot." });
+    }
+});
+
+
+// --- Start Server ---
+app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+});
+
+--- END FILE: server.js ---
+
+--- START FILE: vercel.json ---
+
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "server.js"
+    }
+  ]
+}
+
+--- END FILE: vercel.json ---
+
+--- START FILE: public\index.html ---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numerology & Gemini AI</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load marked.js for Markdown Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>Small AI Numerology Calculator</h1>
+        <p>Powered by Gemini. All results render beautiful Markdown.</p>
+    </header>
+
+    <main>
+        <!-- Numerology Input Section -->
+        <section id="numerology-app">
+            <h2>Calculate Your Destiny</h2>
+            <div class="input-group">
+                <label for="full-name">Full Name (at birth):</label>
+                <input type="text" id="full-name" placeholder="John Michael Doe">
+            </div>
+            <div class="input-group">
+                <label for="dob">Date of Birth:</label>
+                <input type="date" id="dob">
+            </div>
+            <button onclick="calculateNumerology()">Get Analysis</button>
+            <p id="calc-status" class="status-message"></p>
+            
+            <!-- Numerology Output Area (Renders Markdown) -->
+            <div id="numerology-output" class="markdown-container">
+                <p>Results will appear here, fully formatted by Gemini's markdown response.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Floating AI Chatbot Container -->
+    <div id="chatbot-container">
+        <div id="chat-header" onclick="toggleChat()">
+            🤖 Ask Gemini Anything 💬
+        </div>
+        <div id="chat-window" class="closed">
+            <div id="chat-messages">
+                <!-- Initial Welcome Message (rendered via JS/Markdown) -->
+            </div>
+            <div id="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Ask a question..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Chat History ---
+        let chatHistory = [];
+
+        // Function to safely sanitize and render Markdown
+        const renderMarkdown = (markdownText) => {
+            // marked.js converts the markdown string to an HTML string
+            // We use DOMPurify (if available) or basic sanitation to prevent XSS. 
+            // For simplicity in this demo, we rely on marked's default sanitation, 
+            // but in production, DOMPurify is highly recommended.
+            return marked.parse(markdownText);
+        };
+
+        // --- Numerology Logic ---
+        async function calculateNumerology() {
+            const name = document.getElementById('full-name').value;
+            const dob = document.getElementById('dob').value;
+            const outputDiv = document.getElementById('numerology-output');
+            const statusDiv = document.getElementById('calc-status');
+
+            if (!name || !dob) {
+                statusDiv.textContent = "Please enter both name and date of birth.";
+                return;
+            }
+
+            statusDiv.textContent = "Analyzing data with Gemini...";
+            outputDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch('/api/numerology', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, dob })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    statusDiv.textContent = `Error: ${data.error}`;
+                    outputDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                    return;
+                }
+
+                statusDiv.textContent = "Analysis Complete!";
+                // RENDER THE MARKDOWN RESPONSE
+                outputDiv.innerHTML = renderMarkdown(data.result);
+
+            } catch (error) {
+                statusDiv.textContent = "A network error occurred.";
+                outputDiv.innerHTML = `<p style="color: red;">Network Error. Check console.</p>`;
+                console.error('Calculation Error:', error);
+            }
+        }
+
+
+        // --- Chatbot Logic ---
+
+        function toggleChat() {
+            const chatWindow = document.getElementById('chat-window');
+            chatWindow.classList.toggle('closed');
+            // If opening for the first time, add the welcome message
+            if (chatHistory.length === 0 && !chatWindow.classList.contains('closed')) {
+                addMessageToChat(
+                    "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!",
+                    'model'
+                );
+                chatHistory.push({ sender: 'model', text: "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!" });
+            }
+        }
+        
+        function addMessageToChat(text, sender) {
+            const messagesDiv = document.getElementById('chat-messages');
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('chat-message', sender);
+            
+            // RENDER MARKDOWN FOR EVERY CHAT MESSAGE
+            messageElement.innerHTML = renderMarkdown(text); 
+            
+            messagesDiv.appendChild(messageElement);
+            // Scroll to the bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const inputField = document.getElementById('chat-input');
+            const messageText = inputField.value.trim();
+
+            if (!messageText) return;
+
+            // 1. Add user message to history and UI
+            addMessageToChat(messageText, 'user');
+            chatHistory.push({ sender: 'user', text: messageText });
+            inputField.value = '';
+
+            // 2. Add loading indicator
+            const messagesDiv = document.getElementById('chat-messages');
+            const loadingElement = document.createElement('div');
+            loadingElement.classList.add('chat-message', 'model', 'loading');
+            loadingElement.innerHTML = '...';
+            messagesDiv.appendChild(loadingElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        currentMessage: messageText, 
+                        history: chatHistory.slice(0, -1) // Send all history EXCEPT the current user message (which is included separately)
+                    })
+                });
+
+                const data = await response.json();
+                
+                // 3. Remove loading indicator
+                messagesDiv.removeChild(loadingElement);
+
+                if (data.error) {
+                    addMessageToChat(`[Error] ${data.error}`, 'model');
+                    return;
+                }
+
+                // 4. Add Gemini response (fully rendered Markdown)
+                addMessageToChat(data.text, 'model');
+                chatHistory.push({ sender: 'model', text: data.text });
+
+            } catch (error) {
+                console.error('Chat API Error:', error);
+                messagesDiv.removeChild(loadingElement);
+                addMessageToChat("Sorry, I hit a server error.", 'model');
+            }
+        }
+    </script>
+</body>
+</html>
+
+--- END FILE: public\index.html ---
+
+--- START FILE: public\style.css ---
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f9;
+    color: #333;
+}
+
+header {
+    background-color: #007bff;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+main {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Numerology Styles --- */
+
+#numerology-app h2 {
+    border-bottom: 2px solid #ccc;
+    padding-bottom: 10px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+input[type="text"], input[type="date"] {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 1em;
+}
+
+button:hover {
+    background-color: #218838;
+}
+
+.status-message {
+    margin-top: 10px;
+    font-style: italic;
+    color: #666;
+}
+
+/* --- Markdown Output Styling (Applies to both Numerology and Chat) --- */
+.markdown-container {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-left: 5px solid #007bff;
+    border-radius: 4px;
+    background-color: #f9f9ff;
+}
+
+/* Ensure Markdown elements render correctly */
+.markdown-container h1, .markdown-container h2, .markdown-container h3 {
+    color: #0056b3;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+    margin-top: 20px;
+}
+.markdown-container ul, .markdown-container ol {
+    padding-left: 20px;
+}
+.markdown-container blockquote {
+    border-left: 4px solid #ccc;
+    padding-left: 10px;
+    color: #666;
+    margin: 10px 0;
+}
+.markdown-container strong {
+    font-weight: 700;
+    color: #333;
+}
+/* This ensures code blocks (if used by Gemini) render clearly */
+.markdown-container pre {
+    background-color: #eee;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+
+/* --- Floating Chatbot Styles --- */
+
+#chatbot-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 350px;
+    z-index: 1000; /* Ensure it floats above everything */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#chat-header {
+    background-color: #8c52ff;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    cursor: pointer;
+    font-weight: bold;
+    user-select: none;
+}
+
+#chat-window {
+    background: white;
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease-in-out;
+}
+
+#chat-window.closed {
+    height: 0;
+    padding: 0;
+    border: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#chat-messages {
+    flex-grow: 1;
+    padding: 10px;
+    overflow-y: auto;
+    border-bottom: 1px solid #eee;
+}
+
+.chat-message {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 18px;
+    max-width: 85%;
+    line-height: 1.4;
+}
+
+/* User Messages */
+.chat-message.user {
+    background-color: #007bff;
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 2px;
+}
+
+/* AI Model Messages */
+.chat-message.model {
+    background-color: #e6e6e6;
+    color: #333;
+    margin-right: auto;
+    border-bottom-left-radius: 2px;
+}
+
+/* Loading Indicator */
+.chat-message.loading {
+    background-color: #ffe0b2;
+    font-style: italic;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+
+#chat-input-area {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #ddd;
+}
+
+#chat-input {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-right: 5px;
+}
+
+#chat-input-area button {
+    padding: 8px 15px;
+    background-color: #8c52ff;
+    color: white;
+}
+#chat-input-area button:hover {
+    background-color: #7a46e0;
+}
+
+--- END FILE: public\style.css ---

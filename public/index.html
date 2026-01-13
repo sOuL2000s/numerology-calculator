@@ -3,36 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Numerology & Gemini AI</title>
+    <title>The Destiny Matrix | Advanced Numerology Profile</title>
     <link rel="stylesheet" href="style.css">
     <!-- Load marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Load html2pdf.js for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
     <header>
-        <h1>Small AI Numerology Calculator</h1>
-        <p>Powered by Gemini. All results render beautiful Markdown.</p>
+        <h1>The Destiny Matrix</h1>
+        <p>Advanced Life Path Analysis powered by Small AI v2.</p>
     </header>
 
     <main>
-        <!-- Numerology Input Section -->
-        <section id="numerology-app">
-            <h2>Calculate Your Destiny</h2>
-            <div class="input-group">
-                <label for="full-name">Full Name (at birth):</label>
-                <input type="text" id="full-name" placeholder="John Michael Doe">
+        <!-- 1. Comprehensive Profile Section -->
+        <section id="numerology-app" class="card">
+            <h2>Your Personal Destiny Profile</h2>
+            <p class="description">Calculate your Birth Number (Personality), Life Path (Mission), Archetype, and Best Fit Career Vocation.</p>
+            
+            <div class="input-container">
+                <div class="input-group">
+                    <label for="full-name">Full Name (at birth):</label>
+                    <input type="text" id="full-name" placeholder="John Michael Doe">
+                </div>
+                <div class="input-group">
+                    <label for="dob">Date of Birth:</label>
+                    <input type="date" id="dob">
+                </div>
             </div>
-            <div class="input-group">
-                <label for="dob">Date of Birth:</label>
-                <input type="date" id="dob">
-            </div>
-            <button onclick="calculateNumerology()">Get Analysis</button>
+            
+            <button onclick="calculateNumerologyProfile()">Generate Comprehensive Profile</button>
             <p id="calc-status" class="status-message"></p>
             
-            <!-- Numerology Output Area (Renders Markdown) -->
-            <div id="numerology-output" class="markdown-container">
-                <p>Results will appear here, fully formatted by Gemini's markdown response.</p>
+            <!-- Output Wrapper starts hidden -->
+            <div id="numerology-output-wrapper" class="hidden">
+                <div class="export-controls">
+                    <button class="export-button" onclick="exportReport('numerology')">Export as PDF</button>
+                    <button class="export-button secondary-button" onclick="copyReportText('numerology')">Copy Text</button>
+                </div>
+                <div id="numerology-output" class="markdown-container">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Word/Number Analysis Section -->
+        <section id="word-analysis-app" class="card">
+            <h2>Word & Name Vibration Analyzer</h2>
+            <p class="description">Input any word, name, or number (e.g., 'Company Name,' 'Address') to discover its core vibrational profile.</p>
+
+            <div class="input-group full-width">
+                <label for="input-word">Name or Number to Analyze:</label>
+                <input type="text" id="input-word" placeholder="Project Phoenix, Apple Inc, My Street Address">
+            </div>
+
+            <button onclick="analyzeWordProfile()">Analyze Vibration</button>
+            <p id="word-status" class="status-message"></p>
+            
+            <!-- Output Wrapper starts hidden -->
+            <div id="word-output-wrapper" class="hidden">
+                <div class="export-controls">
+                    <button class="export-button" onclick="exportReport('word')">Export as PDF</button>
+                    <button class="export-button secondary-button" onclick="copyReportText('word')">Copy Text</button>
+                </div>
+                <div id="word-output" class="markdown-container">
+                    <!-- Results will appear here -->
+                </div>
             </div>
         </section>
     </main>
@@ -40,14 +78,14 @@
     <!-- Floating AI Chatbot Container -->
     <div id="chatbot-container">
         <div id="chat-header" onclick="toggleChat()">
-            🤖 Ask Gemini Anything 💬
+            🤖 Destiny AI Chat 💬
         </div>
         <div id="chat-window" class="closed">
             <div id="chat-messages">
-                <!-- Initial Welcome Message (rendered via JS/Markdown) -->
+                <!-- Messages populate here -->
             </div>
             <div id="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Ask a question..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
+                <input type="text" id="chat-input" placeholder="Ask about numerology or life purpose..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
                 <button onclick="sendChatMessage()">Send</button>
             </div>
         </div>
@@ -59,30 +97,32 @@
 
         // Function to safely sanitize and render Markdown
         const renderMarkdown = (markdownText) => {
-            // marked.js converts the markdown string to an HTML string
-            // We use DOMPurify (if available) or basic sanitation to prevent XSS. 
-            // For simplicity in this demo, we rely on marked's default sanitation, 
-            // but in production, DOMPurify is highly recommended.
             return marked.parse(markdownText);
         };
 
-        // --- Numerology Logic ---
-        async function calculateNumerology() {
+        // --- Core Calculation Logic (Updated visibility control) ---
+        async function calculateNumerologyProfile() {
             const name = document.getElementById('full-name').value;
             const dob = document.getElementById('dob').value;
+            const outputWrapper = document.getElementById('numerology-output-wrapper');
             const outputDiv = document.getElementById('numerology-output');
             const statusDiv = document.getElementById('calc-status');
+            
+            // Start by hiding output until success
+            outputWrapper.classList.add('hidden');
 
             if (!name || !dob) {
-                statusDiv.textContent = "Please enter both name and date of birth.";
+                statusDiv.textContent = "Please ensure both name and date of birth are entered.";
+                statusDiv.style.color = '#dc3545';
                 return;
             }
 
-            statusDiv.textContent = "Analyzing data with Gemini...";
-            outputDiv.innerHTML = '<p>Loading...</p>';
+            statusDiv.textContent = "Analyzing your Destiny Matrix...";
+            statusDiv.style.color = '#007bff';
+            outputDiv.innerHTML = '<p class="loading-animation">Generating detailed profile...</p>';
 
             try {
-                const response = await fetch('/api/numerology', {
+                const response = await fetch('/api/numerology-profile', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, dob })
@@ -90,36 +130,183 @@
 
                 const data = await response.json();
 
-                if (data.error) {
-                    statusDiv.textContent = `Error: ${data.error}`;
-                    outputDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
-                    return;
+                if (data.error || !response.ok) {
+                    statusDiv.textContent = `Error: Profile generation failed.`;
+                    statusDiv.style.color = '#dc3545';
+                    outputDiv.innerHTML = `<p style="color: red;">Profile generation failed.</p>`;
+                    return; // Crucial: Keep output hidden on error
                 }
 
-                statusDiv.textContent = "Analysis Complete!";
-                // RENDER THE MARKDOWN RESPONSE
+                statusDiv.textContent = "Profile Generated Successfully.";
+                statusDiv.style.color = '#28a745';
                 outputDiv.innerHTML = renderMarkdown(data.result);
+                // SHOW OUTPUT ONLY ON SUCCESS
+                outputWrapper.classList.remove('hidden'); 
 
             } catch (error) {
-                statusDiv.textContent = "A network error occurred.";
-                outputDiv.innerHTML = `<p style="color: red;">Network Error. Check console.</p>`;
+                statusDiv.textContent = "A network error occurred. Check your connection.";
+                statusDiv.style.color = '#dc3545';
+                outputDiv.innerHTML = `<p style="color: red;">Network Error.</p>`;
                 console.error('Calculation Error:', error);
+            }
+        }
+        
+        async function analyzeWordProfile() {
+            const input = document.getElementById('input-word').value;
+            const outputWrapper = document.getElementById('word-output-wrapper');
+            const outputDiv = document.getElementById('word-output');
+            const statusDiv = document.getElementById('word-status');
+
+            // Start by hiding output until success
+            outputWrapper.classList.add('hidden');
+
+            if (!input) {
+                statusDiv.textContent = "Please enter a word, name, or number to analyze.";
+                statusDiv.style.color = '#dc3545';
+                return;
+            }
+
+            statusDiv.textContent = "Analyzing vibrational frequency...";
+            statusDiv.style.color = '#007bff';
+            outputDiv.innerHTML = '<p class="loading-animation">Calculating core vibration...</p>';
+
+            try {
+                const response = await fetch('/api/word-profile', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ input })
+                });
+
+                const data = await response.json();
+
+                if (data.error || !response.ok) {
+                    statusDiv.textContent = `Error: Analysis failed. Please try again.`;
+                    statusDiv.style.color = '#dc3545';
+                    outputDiv.innerHTML = `<p style="color: red;">Analysis failed.</p>`;
+                    return; // Crucial: Keep output hidden on error
+                }
+
+                statusDiv.textContent = "Vibration Analysis Complete.";
+                statusDiv.style.color = '#28a745';
+                outputDiv.innerHTML = renderMarkdown(data.result);
+                // SHOW OUTPUT ONLY ON SUCCESS
+                outputWrapper.classList.remove('hidden');
+
+            } catch (error) {
+                statusDiv.textContent = "A network error occurred. Check your connection.";
+                statusDiv.style.color = '#dc3545';
+                outputDiv.innerHTML = `<p style="color: red;">Network Error.</p>`;
+                console.error('Word Analysis Error:', error);
+            }
+        }
+
+        // --- Export Functions (Added check for empty content) ---
+
+        function getReportData(type) {
+            if (type === 'numerology') {
+                return {
+                    element: document.getElementById('numerology-output'),
+                    name: document.getElementById('full-name').value || 'User',
+                    date: new Date().toISOString().slice(0, 10),
+                    reportType: 'Personal Destiny Matrix'
+                };
+            } else if (type === 'word') {
+                return {
+                    element: document.getElementById('word-output'),
+                    name: document.getElementById('input-word').value || 'Vibration',
+                    date: new Date().toISOString().slice(0, 10),
+                    reportType: 'Vibration Analysis'
+                };
+            }
+            return null;
+        }
+
+        // 1. PDF Export
+        function exportReport(type) {
+            const report = getReportData(type);
+            // CHECK 1: Ensure report exists and its HTML content is not just whitespace
+            if (!report || !report.element.innerHTML.trim()) {
+                alert("Please generate a profile first before attempting to export.");
+                return;
+            }
+
+            // Create a temporary element to hold content for PDF generation
+            const pdfContent = document.createElement('div');
+            pdfContent.style.padding = '20px';
+            pdfContent.style.fontFamily = 'Arial, sans-serif';
+
+            // Add Header
+            pdfContent.innerHTML = `
+                <div style="text-align: center; border-bottom: 2px solid #5D50FF; padding-bottom: 10px; margin-bottom: 20px;">
+                    <h1 style="color: #5D50FF; margin: 0;">The Destiny Matrix: ${report.reportType}</h1>
+                    <p style="margin: 5px 0 0 0; color: #666;">Report for: ${report.name} | Date: ${report.date}</p>
+                </div>
+            `;
+            
+            // Append the actual HTML content (markdown-container)
+            pdfContent.appendChild(report.element.cloneNode(true));
+            
+            // PDF Generation Configuration
+            const filename = `${report.name.replace(/\s/g, '_')}_${report.reportType.replace(/\s/g, '_')}_${report.date}.pdf`;
+            
+            const options = {
+                margin: 10,
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, logging: false, dpi: 192, letterRendering: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Use html2pdf to generate and save the file
+            html2pdf().from(pdfContent).set(options).save();
+        }
+
+        // 2. Copy Text Export
+        async function copyReportText(type) {
+            const report = getReportData(type);
+            // CHECK 2: Ensure report exists and its inner text content is not empty
+            if (!report || !report.element.innerText.trim()) {
+                alert("Please generate a profile first before attempting to copy.");
+                return;
+            }
+
+            // Get the inner text (stripping HTML formatting)
+            const textContent = report.element.innerText;
+
+            try {
+                await navigator.clipboard.writeText(textContent);
+                const statusDivId = type === 'numerology' ? 'calc-status' : 'word-status';
+                const statusDiv = document.getElementById(statusDivId);
+                
+                // Temporarily show success message
+                const originalText = statusDiv.textContent;
+                const originalColor = statusDiv.style.color;
+                
+                statusDiv.textContent = `Report text copied successfully!`;
+                statusDiv.style.color = '#28a745';
+                
+                setTimeout(() => {
+                    statusDiv.textContent = originalText;
+                    statusDiv.style.color = originalColor;
+                }, 3000);
+                
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text. Please try selecting the text manually.');
             }
         }
 
 
-        // --- Chatbot Logic ---
-
+        // --- Chatbot Logic (Unchanged) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
             chatWindow.classList.toggle('closed');
-            // If opening for the first time, add the welcome message
             if (chatHistory.length === 0 && !chatWindow.classList.contains('closed')) {
                 addMessageToChat(
-                    "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!",
+                    "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry.",
                     'model'
                 );
-                chatHistory.push({ sender: 'model', text: "Hello! I'm the floating AI assistant powered by Gemini. Ask me anything about numerology, coding, or life!" });
+                chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
             }
         }
         
@@ -127,12 +314,8 @@
             const messagesDiv = document.getElementById('chat-messages');
             const messageElement = document.createElement('div');
             messageElement.classList.add('chat-message', sender);
-            
-            // RENDER MARKDOWN FOR EVERY CHAT MESSAGE
             messageElement.innerHTML = renderMarkdown(text); 
-            
             messagesDiv.appendChild(messageElement);
-            // Scroll to the bottom
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
@@ -142,12 +325,10 @@
 
             if (!messageText) return;
 
-            // 1. Add user message to history and UI
             addMessageToChat(messageText, 'user');
             chatHistory.push({ sender: 'user', text: messageText });
             inputField.value = '';
 
-            // 2. Add loading indicator
             const messagesDiv = document.getElementById('chat-messages');
             const loadingElement = document.createElement('div');
             loadingElement.classList.add('chat-message', 'model', 'loading');
@@ -155,34 +336,31 @@
             messagesDiv.appendChild(loadingElement);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         currentMessage: messageText, 
-                        history: chatHistory.slice(0, -1) // Send all history EXCEPT the current user message (which is included separately)
+                        history: chatHistory.slice(0, -1) 
                     })
                 });
 
                 const data = await response.json();
                 
-                // 3. Remove loading indicator
                 messagesDiv.removeChild(loadingElement);
 
                 if (data.error) {
-                    addMessageToChat(`[Error] ${data.error}`, 'model');
+                    addMessageToChat(`[Error] Failed to get response.`, 'model');
                     return;
                 }
 
-                // 4. Add Gemini response (fully rendered Markdown)
                 addMessageToChat(data.text, 'model');
                 chatHistory.push({ sender: 'model', text: data.text });
 
             } catch (error) {
                 console.error('Chat API Error:', error);
-                messagesDiv.removeChild(loadingElement);
+                if (loadingElement.parentNode) messagesDiv.removeChild(loadingElement);
                 addMessageToChat("Sorry, I hit a server error.", 'model');
             }
         }

@@ -206,22 +206,29 @@
         function formatReportContent(markdownText, baseColor = '#222222') {
             if (!markdownText) return [{ text: 'Content data is missing.', color: '#888', margin: [0, 5, 0, 0] }];
 
-            const elements = [];
-            const lines = markdownText.split('\n');
-            let currentList = null;
-            let listType = null;
-            let listMargin = [0, 2, 0, 0];
+            // CRITICAL FIX: Robustly clean up residual HTML list tags inserted by the AI
+            let cleanedText = markdownText.replace(/<\s*li[^>]*>/gi, '* ').replace(/<\/\s*li\s*>/gi, '');
+            cleanedText = cleanedText.replace(/<\s*ul[^>]*>/gi, '').replace(/<\/\s*ul\s*>/gi, '');
+            cleanedText = cleanedText.replace(/<\s*ol[^>]*>/gi, '').replace(/<\/\s*ol\s*>/gi, '');
             
-            // Function to process a single line for inline bolding
-            const processLine = (line) => {
+            const elements = [];
+            const lines = cleanedText.split('\n'); 
+            
+            // Process a single line for inline bolding
+            const processLine = (line, isListItem = false) => {
                 const textRuns = [];
                 // Split by bold markers (**)
                 const parts = line.split(/(\*\*.*?\*\*)/g).filter(p => p.length > 0); 
 
                 parts.forEach(part => {
                     if (part.startsWith('**') && part.endsWith('**')) {
-                        // Bold text for keywords
-                        textRuns.push({ text: part.substring(2, part.length - 2), bold: true, color: '#333333' });
+                        // Bold text emphasized with Primary Purple for lists/key points
+                        const boldColor = isListItem ? '#3A1C71' : '#333333';
+                        textRuns.push({ 
+                            text: part.substring(2, part.length - 2), 
+                            bold: true, 
+                            color: boldColor
+                        }); 
                     } else {
                         // Standard body text
                         textRuns.push({ text: part, color: baseColor });
@@ -229,36 +236,51 @@
                 });
                 return textRuns;
             };
+            
+            let currentList = null;
+            let listType = null;
 
             for (let line of lines) {
                 line = line.trim();
                 if (!line) {
-                    currentList = null; // Break list context on empty line
+                    currentList = null; 
                     listType = null;
                     continue;
                 }
                 
-                // Handle Lists (* or - or 1.)
-                if (line.startsWith('* ') || line.startsWith('- ')) {
+                // Handle Bulleted Lists (* or -)
+                if (line.match(/^(\*|-)\s/)) {
                     if (!currentList || listType !== 'ul') {
-                        currentList = { ul: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        // Start new unordered list
+                        currentList = { ul: [], margin: [10, 5, 0, 5], lineHeight: 1.4 };
                         elements.push(currentList);
                         listType = 'ul';
                     }
-                    currentList.ul.push({ text: processLine(line.substring(2).trim()), margin: listMargin });
-                } else if (line.match(/^\d+\. /)) {
+                    const content = line.substring(line.indexOf(' ') + 1).trim();
+                    currentList.ul.push({ 
+                        text: processLine(content, true), // Treat as list item (true)
+                        margin: [0, 2, 0, 2], // Tighten spacing
+                    });
+                } 
+                // Handle Ordered Lists (1.)
+                else if (line.match(/^\d+\. /)) {
                     if (!currentList || listType !== 'ol') {
-                        currentList = { ol: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        currentList = { ol: [], margin: [10, 5, 0, 5], lineHeight: 1.4 };
                         elements.push(currentList);
                         listType = 'ol';
                     }
-                    currentList.ol.push({ text: processLine(line.substring(line.indexOf('.') + 1).trim()), margin: listMargin });
-                } else {
+                    const content = line.substring(line.indexOf('.') + 1).trim();
+                    currentList.ol.push({ 
+                        text: processLine(content, true), // Treat as list item (true)
+                        margin: [0, 2, 0, 2],
+                    });
+                } 
+                // Handle Headings (rare, but stop list continuity) or normal paragraphs
+                else {
                     currentList = null;
                     listType = null;
-                    
-                    // Plain paragraph (use the text array structure for formatting consistency)
-                    elements.push({ text: processLine(line), margin: [0, 5, 0, 0], lineHeight: 1.4 });
+                    // Apply body style with paragraph spacing [L, T, R, B]
+                    elements.push({ text: processLine(line), style: 'body' }); 
                 }
             }
             return elements;
@@ -597,49 +619,68 @@
             const meta = reportData.metadata;
             const data = reportData.result;
             
+            // CRITICAL FIX: Ensure meta.birthDay exists before proceeding
+            if (!meta.birthDay || !meta.birthPlanet) {
+                alert("Error: Missing planetary data in the stored profile. Please regenerate the profile.");
+                console.error("Missing critical metadata fields: birthDay or birthPlanet.");
+                return;
+            }
+            
             // --- PROFESSIONAL PDF STYLES ---
             const styles = {
                 header: { 
                     fontSize: 24, 
                     bold: true, 
-                    color: '#2c3e50', // Dark Blue/Black for print
+                    color: '#2c3e50', 
                     alignment: 'center', 
                     margin: [0, 0, 0, 10] 
                 },
                 title: { 
-                    fontSize: 32, 
+                    fontSize: 36, 
                     bold: true, 
-                    color: '#8e44ad', // Deep Purple
+                    color: '#3A1C71', // Primary Purple
                     alignment: 'center', 
-                    margin: [0, 20, 0, 30] 
+                    margin: [0, 25, 0, 35] 
                 },
+                // Major Section Header (Clean, filled background block)
                 sectionHeader: { 
-                    fontSize: 18, 
+                    fontSize: 20, 
                     bold: true, 
-                    color: '#34495e', // Dark Gray-Blue
-                    margin: [0, 30, 0, 10], 
-                    decoration: 'underline', 
-                    decorationColor: '#bdc3c7',
-                    pageBreak: 'before' // Explicit page break for major sections
+                    color: '#11152a', 
+                    fillColor: '#EBEBEB', // Light gray background fill
+                    margin: [0, 40, 0, 15], 
+                    pageBreak: 'before',
+                    alignment: 'left',
+                    padding: [10, 8, 10, 8] 
                 },
+                // Sub Header (Used for Strengths/Challenges/Remedies intro)
                 subHeader: { 
-                    fontSize: 14, 
+                    fontSize: 16, 
                     bold: true, 
-                    color: '#34495e', 
-                    margin: [0, 15, 0, 5] 
+                    color: '#6EE7E7', // AI Accent Cyan/Teal
+                    margin: [0, 20, 0, 10], 
                 },
+                // General Body Text (Paragraphs)
                 body: { 
                     fontSize: 11, 
-                    color: '#222222', // Near-black for print readability
-                    lineHeight: 1.5, 
-                    margin: [0, 2, 0, 0] 
-                },
-                tableHeader: {
-                    fontSize: 12, 
-                    bold: true, 
                     color: '#222222', 
-                    fillColor: '#ecf0f1', // Light Gray background for header row
+                    lineHeight: 1.5, 
+                    margin: [0, 0, 0, 8] // Explicit paragraph bottom margin
+                },
+                // Table Header
+                tableHeader: {
+                    fontSize: 13, 
+                    bold: true, 
+                    color: '#1A1F3C', 
+                    fillColor: '#E0E0E0', 
                     alignment: 'center'
+                },
+                // Small text for career/archetype below the table
+                detail: {
+                    fontSize: 10,
+                    color: '#34495e',
+                    alignment: 'left',
+                    margin: [0, 5, 0, 2]
                 },
                 meta: { 
                     fontSize: 10, 
@@ -652,15 +693,13 @@
             // --- PROFESSIONAL PDF CONTENT STRUCTURE ---
             const docDefinition = {
                 pageSize: 'A4',
-                // Explicitly set page margins (A4 standard margin)
                 pageMargins: [60, 60, 60, 60], 
                 
-                // White background is standard for printing (Dark background removed)
                 background: () => ({
                     canvas: [{
                         type: 'rect',
                         x: 0, y: 0, w: 595, h: 842,
-                        color: '#FFFFFF' // Ensure white background
+                        color: '#FFFFFF' 
                     }]
                 }),
                 
@@ -675,12 +714,15 @@
                     { text: 'The Destiny Matrix', style: 'header' },
                     { text: data.title, style: 'title' },
 
-                    // User Details Table (GOAL: Fix Tables)
+                    // User Details Table Header
                     {
                         text: 'Core Numerological Coordinates',
-                        style: 'subHeader',
-                        margin: [0, 5, 0, 5]
+                        style: 'subHeader', 
+                        color: '#333333', 
+                        margin: [0, 0, 0, 10]
                     },
+                    
+                    // User Details Table (Improved Layout)
                     {
                         table: {
                             headerRows: 1,
@@ -694,55 +736,65 @@
                                     { text: 'Destiny No.', style: 'tableHeader' }
                                 ],
                                 [
-                                    { text: meta.name, style: 'body', alignment: 'center' }, 
-                                    { text: meta.dob, style: 'body', alignment: 'center' }, 
-                                    { text: `${meta.lifePathNo} (${meta.missionPlanet})`, style: 'body', alignment: 'center' }, 
-                                    { text: `${meta.birthNo} (${meta.birthPlanet})`, style: 'body', alignment: 'center' }, 
-                                    { text: `${meta.destinyNo} (${meta.destinyPlanet})`, style: 'body', alignment: 'center' }
+                                    { text: meta.name, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: meta.dob, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: `${meta.lifePathNo}`, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: `${meta.birthNo}`, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: `${meta.destinyNo}`, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }
                                 ]
                             ]
                         },
                         layout: {
-                            // Simple, print-safe horizontal lines
-                            hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
-                            vLineWidth: () => 0,
-                            hLineColor: () => '#95a5a6',
-                            fillColor: (i) => (i === 0) ? '#ecf0f1' : null,
-                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 8, paddingBottom: () => 8
+                            // These two MUST include the 'node' argument if they reference node.table.body.length
+                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
+                            vLineWidth: (i, node) => 0.5, 
+                            hLineColor: (i, node) => (i === 0 || i === node.table.body.length) ? '#3A1C71' : '#bdc3c7', 
+                            vLineColor: (i, node) => '#bdc3c7',
+                            fillColor: (i, node) => (i === 0) ? '#E0E0E0' : null,
+                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 6, paddingBottom: () => 6
                         },
-                        margin: [0, 10, 0, 30] // Increased spacing after the table
+                        margin: [0, 10, 0, 15] 
                     },
 
-                    // Section 1: Core Life Path (GOAL: Content Flow)
+                    // Detail Boxes below the table
+                    { text: `Combined Archetype: ${meta.archetype}`, style: 'detail' },
+                    { text: `Vocation Alignment: ${meta.career}`, style: 'detail', margin: [0, 0, 0, 25] },
+
+
+                    // Section 1: Core Life Path 
                     { text: '1. Core Life Path Summary (Chaldean Numerology)', style: 'sectionHeader', pageBreak: 'before' }, 
-                    ...formatReportContent(data.lifePathSummary),
+                    ...formatReportContent(data.lifePathSummary, '#333333'), 
 
                     // Section 2: Vedic Fusion
                     { text: `2. Vedic Planetary Fusion (Graha Drishti)`, style: 'sectionHeader' },
-                    ...formatReportContent(data.vedicFusion),
+                    ...formatReportContent(data.vedicFusion, '#333333'),
                     
                     // Section 3: Destiny Number
                     { text: `3. Destiny Number & Ultimate Expression`, style: 'sectionHeader' },
-                    ...formatReportContent(data.destinyExplanation),
+                    ...formatReportContent(data.destinyExplanation, '#333333'),
 
                     // Section 4: Key Traits
                     { text: '4. Key Strengths & Challenges', style: 'sectionHeader' },
                     
-                    { text: 'Key Strengths:', style: 'subHeader' },
-                    ...formatReportContent(data.strengths),
+                    { text: '💡 Key Strengths', style: 'subHeader' }, 
+                    ...formatReportContent(data.strengths, '#333333'), 
 
-                    { text: 'Potential Challenges:', style: 'subHeader' },
-                    ...formatReportContent(data.challenges),
+                    { text: '🚧 Potential Challenges', style: 'subHeader' }, 
+                    ...formatReportContent(data.challenges, '#333333'),
 
                     // Section 5: Remedies
                     { text: '5. Remedial Suggestions (Upayes)', style: 'sectionHeader' },
-                    ...formatReportContent(data.remedies),
+                    
+                    // FIXED LINE: Use meta.birthDay instead of the global PLANETARY_MAPPING
+                    { text: `Day of Strength: ${meta.birthPlanet} (on ${meta.birthDay})`, style: 'detail', bold: true, color: '#3A1C71', margin: [0, 0, 0, 10] },
+                    
+                    ...formatReportContent(data.remedies, '#333333'),
                     
                     // Footer Info
                     { 
                         text: `\nReport Generated: ${new Date().toLocaleDateString()}`, 
                         style: 'meta',
-                        margin: [0, 30, 0, 0] // Ensure margin for clean look
+                        margin: [0, 30, 0, 0] 
                     }
                 ],
                 styles: styles

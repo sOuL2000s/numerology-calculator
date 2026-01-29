@@ -116,6 +116,19 @@ const PLANETARY_MAPPING = {
     9: { planet: "Mars (Mangal ♂)", day: "Tuesday", influence: "Energy, Courage, Action, Initiative, Conflict, Drive." }
 };
 
+// --- NEW: Detailed Personality Profile Matrix (Derived from Advice Text) ---
+const NUMEROLOGY_PROFILES = {
+    1: { core: "Leader, Independent, Confident", focus: "Authority, originality, achievement.", challenge: "Egoistic, impatient, dominating.", group: "Action & Power" },
+    2: { core: "Diplomatic, Gentle, Cooperative", focus: "Harmony, relationships, balance.", challenge: "Over-sensitive, indecisive, dependent.", group: "Emotional & Relationship" },
+    3: { core: "Creative, Expressive, Charming", focus: "Communication, ideas, art, fun.", challenge: "Scattered, impulsive, avoids discipline.", group: "Creative & Expressive" },
+    4: { core: "Practical, Disciplined, Reliable", focus: "Stability, systems, order.", challenge: "Rigid, stubborn, overly cautious.", group: "Action & Power" },
+    5: { core: "Adventurous, Energetic, Freedom-loving", focus: "Travel, change, excitement.", challenge: "Restless, inconsistent, impulsive.", group: "Creative & Expressive" },
+    6: { core: "Caring, Nurturing, Responsible", focus: "Beauty, harmony, service, family.", challenge: "Over-giving, controlling, perfectionist.", group: "Emotional & Relationship" },
+    7: { core: "Intellectual, Spiritual, Introspective", focus: "Solitude, research, deeper truths.", challenge: "Detached, skeptical, emotionally distant.", group: "Spiritual & Intellectual" },
+    8: { core: "Ambitious, Disciplined, Strategic", focus: "Success, money, structure, power.", challenge: "Controlling, emotionally reserved, rigid.", group: "Action & Power" },
+    9: { core: "Compassionate, Humanitarian, Wise", focus: "Helping others, big-picture thinking.", challenge: "Over-emotional, self-sacrificing, unrealistic.", group: "Emotional & Relationship" }
+};
+
 // Matrices: M[BirthNo - 1][LifePathNo - 1] 
 const ARCHETYPE_MATRIX = [
     // Mission 1        2            3            4            5             6             7             8             9
@@ -154,25 +167,35 @@ app.post('/api/numerology-profile', async (req, res) => {
         return res.status(400).send({ error: "Name and Date of Birth are required." });
     }
 
+    // --- START: Calculation and Data Lookup (Moved outside try/catch) ---
+
+    // Calculate necessary numbers (1-9)
+    const birthNo = calculateBirthNumber(dob);
+    const lifePathNo = calculateLifePathNumber(dob);
+    const destinyNo = calculateDestinyNumber(name);
+
+    // Lookup Archetype and Career based on matrices
+    const archetype = ARCHETYPE_MATRIX[birthNo - 1][lifePathNo - 1];
+    const career = CAREER_MATRIX[birthNo - 1][lifePathNo - 1];
+    
+    // Lookup Planetary Data
+    const birthPlanet = PLANETARY_MAPPING[birthNo];
+    const missionPlanet = PLANETARY_MAPPING[lifePathNo];
+    const destinyPlanet = PLANETARY_MAPPING[destinyNo]; 
+    
+    // Lookup Detailed Profiles 
+    const birthProfile = NUMEROLOGY_PROFILES[birthNo];
+    const missionProfile = NUMEROLOGY_PROFILES[lifePathNo];
+    const destinyProfile = NUMEROLOGY_PROFILES[destinyNo];
+
+    // Basic Validation: Ensure numbers are mapped (i.e., not 0 due to bad input parsing)
+    if (!birthPlanet || !missionPlanet || !destinyPlanet || !birthProfile || !missionProfile || !destinyProfile) {
+         return res.status(400).send({ error: "Invalid date or name format. Could not map numerology numbers (expect 1-9)." });
+    }
+
+    // --- END: Calculation and Data Lookup ---
+
     try {
-        // Calculate necessary numbers (1-9)
-        const birthNo = calculateBirthNumber(dob);
-        const lifePathNo = calculateLifePathNumber(dob);
-        const destinyNo = calculateDestinyNumber(name); // Destiny Number
-
-        // Lookup Archetype and Career based on matrices
-        const archetype = ARCHETYPE_MATRIX[birthNo - 1][lifePathNo - 1];
-        const career = CAREER_MATRIX[birthNo - 1][lifePathNo - 1];
-        
-        // Lookup Planetary Data
-        const birthPlanet = PLANETARY_MAPPING[birthNo];
-        const missionPlanet = PLANETARY_MAPPING[lifePathNo];
-        const destinyPlanet = PLANETARY_MAPPING[destinyNo]; 
-        
-        if (!birthPlanet || !missionPlanet || !destinyPlanet) {
-             throw new Error("Invalid numerology calculation result (1-9 mapping failure).");
-        }
-
         const numerologyPrompt = `
             You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer (Jyotish). Your response MUST be a single, clean JSON object that strictly adheres to the provided schema. Do not include any text outside the JSON object. Use rich Markdown syntax (lists, bolding, headings) within the string fields for optimal rendering.
 
@@ -186,14 +209,20 @@ app.post('/api/numerology-profile', async (req, res) => {
             *   Best Fit Career Vocation: ${career}
             *   Planetary Day of Strength: ${birthPlanet.day}
 
+            // --- NEW CONTEXT INJECTION ---
+            **Detailed Personality Coordinates (INSTRUCTIVE DATA):**
+            *   Birth Number (${birthNo}) Core: ${birthProfile.core} (Focus: ${birthProfile.focus})
+            *   Life Path Number (${lifePathNo}) Core: ${missionProfile.core} (Focus: ${missionProfile.focus})
+            *   Numerical Group Synergy (Birth/Mission): ${birthProfile.group} meets ${missionProfile.group}
+
             **Instructions for JSON Content Generation:**
             1.  **title:** Must be the Archetype as the main title (e.g., "The ${archetype} Destiny Profile").
-            2.  **lifePathSummary:** Explain the meaning of the combined Archetype (${archetype}). Detail the interplay between the Birth Number (${birthNo}) and the Life Path Number (${lifePathNo}) in Chaldean terms.
+            2.  **lifePathSummary:** Explain the meaning of the combined Archetype (${archetype}). **CRITICAL:** Analyze the synergy or friction between the Birth Number's group (${birthProfile.group}) and the Life Path Number's group (${missionProfile.group}). Detail how the Birth Number's core drive (${birthProfile.core}) aids or frustrates the Life Path's mission (${missionProfile.core}).
             3.  **vedicFusion:** Provide a deep, detailed analysis (Jyotish Focus) of how the governing planets—${birthPlanet.planet} (Personality) and ${missionPlanet.planet} (Mission)—flavor the user's life according to Vedic wisdom. Discuss core karmic themes and disposition (Prakriti) imparted by these two Grahas.
-            4.  **strengths:** Identify three key positive personality traits and inherent talents resulting from this specific numerical and planetary fusion. Use a markdown list.
-            5.  **challenges:** Identify three key potential struggles, pitfalls, or growth areas (often linked to planetary doshas or numerical conflicts). Use a markdown list.
+            4.  **strengths:** Identify three key positive personality traits and inherent talents resulting from this specific fusion. Ensure these align with the positive core attributes listed in the coordinates section above. Use a markdown list.
+            5.  **challenges:** Identify three key potential struggles, pitfalls, or growth areas. **CRITICAL:** Ensure the common "weak side" of the Birth Number (e.g., "${birthProfile.challenge}") and Life Path Number (e.g., "${missionProfile.challenge}") are directly addressed as potential struggles or internal conflicts. Use a markdown list.
             6.  **remedies:** Provide three specific, practical Vedic remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, specific days/colors to utilize, offerings, or activities). Mention utilizing their Planetary Day of Strength (${birthPlanet.day}). Use a markdown list.
-            7.  **destinyExplanation:** Provide a detailed explanation of the Destiny Number (${destinyNo}) and its planetary ruler (${destinyPlanet.planet}). Explain how this energy shapes the user's ultimate life expression and impact on the world.
+            7.  **destinyExplanation:** Provide a detailed explanation of the Destiny Number (${destinyNo}) and its planetary ruler. **CRITICAL:** Use the Destiny Profile's core traits (${destinyProfile.core}) to describe the ultimate life expression and impact on the world.
         `;
 
         // Define the JSON structure for the Gemini API call
@@ -238,7 +267,8 @@ app.post('/api/numerology-profile', async (req, res) => {
                 dateGenerated: new Date().toISOString(),
                 birthPlanet: birthPlanet.planet,
                 missionPlanet: missionPlanet.planet,
-                destinyPlanet: destinyPlanet.planet
+                destinyPlanet: destinyPlanet.planet,
+                birthDay: birthPlanet.day // <-- ADDED: Expose the Planetary Day of Strength
             }
         });
 

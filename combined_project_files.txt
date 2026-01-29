@@ -62,8 +62,8 @@ const PORT = process.env.PORT || 3000;
 
 // Initialize GoogleGenAI client and define models
 const ai = new GoogleGenAI({}); 
-const numerologyModel = "gemini-2.5-flash"; 
-const chatModel = "gemini-2.5-flash"; 
+const numerologyModel = "gemini-2.5-flash-preview-09-2025"; 
+const chatModel = "gemini-2.5-flash-preview-09-2025"; 
 
 // Setup paths for serving
 const __filename = fileURLToPath(import.meta.url);
@@ -124,13 +124,36 @@ function calculateLifePathNumber(dob) {
         sum += parseInt(digit, 10);
     }
     
-    // Note: Master numbers (11, 22, 33) are NOT reduced in standard Western numerology,
-    // but for simplicity and consistency with the 1-9 planetary mapping, we reduce all the way.
-    // The previous implementation used full reduction, so we maintain this consistency.
+    // Note: The reduction maintains consistency with the 1-9 planetary mapping.
     return calculateSingleDigit(sum);
 }
 
-// --- NEW: Planetary Mapping Matrix (Vedic Grahas) ---
+// --- NEW: Name Calculation (Destiny Number) ---
+const NAME_MAPPING = {
+    A: 1, I: 1, J: 1, Q: 1, Y: 1,
+    B: 2, K: 2, R: 2,
+    C: 3, G: 3, L: 3, S: 3,
+    D: 4, M: 4, T: 4,
+    E: 5, H: 5, N: 5, X: 5,
+    U: 6, V: 6, W: 6,
+    O: 7, Z: 7,
+    F: 8, P: 8,
+};
+
+function calculateDestinyNumber(name) {
+    if (!name) return 0;
+    // Normalize name: uppercase and remove non-alphabetic characters
+    name = name.toUpperCase().replace(/[^A-Z]/g, ''); 
+    let sum = 0;
+    for (const letter of name) {
+        sum += NAME_MAPPING[letter] || 0;
+    }
+    // The Destiny Number is often reduced fully
+    return calculateSingleDigit(sum);
+}
+
+
+// --- Planetary Mapping Matrix (Vedic Grahas) ---
 const PLANETARY_MAPPING = {
     1: { planet: "Sun (Surya ☉)", day: "Sunday", influence: "Authority, Soul, Leadership, Vitality, Ego." },
     2: { planet: "Moon (Chandra ☽)", day: "Monday", influence: "Mind, Emotions, Intuition, Fluctuation, Nurturing." },
@@ -141,6 +164,19 @@ const PLANETARY_MAPPING = {
     7: { planet: "Ketu (☋ - South Node)", day: "Thursday/Tuesday (often mixed)", influence: "Spirituality, Detachment, Research, Introspection, Past Life Karma." },
     8: { planet: "Saturn (Shani ♄)", day: "Saturday", influence: "Karma, Discipline, Delays, Structure, Responsibility, Hard Work." },
     9: { planet: "Mars (Mangal ♂)", day: "Tuesday", influence: "Energy, Courage, Action, Initiative, Conflict, Drive." }
+};
+
+// --- NEW: Detailed Personality Profile Matrix (Derived from Advice Text) ---
+const NUMEROLOGY_PROFILES = {
+    1: { core: "Leader, Independent, Confident", focus: "Authority, originality, achievement.", challenge: "Egoistic, impatient, dominating.", group: "Action & Power" },
+    2: { core: "Diplomatic, Gentle, Cooperative", focus: "Harmony, relationships, balance.", challenge: "Over-sensitive, indecisive, dependent.", group: "Emotional & Relationship" },
+    3: { core: "Creative, Expressive, Charming", focus: "Communication, ideas, art, fun.", challenge: "Scattered, impulsive, avoids discipline.", group: "Creative & Expressive" },
+    4: { core: "Practical, Disciplined, Reliable", focus: "Stability, systems, order.", challenge: "Rigid, stubborn, overly cautious.", group: "Action & Power" },
+    5: { core: "Adventurous, Energetic, Freedom-loving", focus: "Travel, change, excitement.", challenge: "Restless, inconsistent, impulsive.", group: "Creative & Expressive" },
+    6: { core: "Caring, Nurturing, Responsible", focus: "Beauty, harmony, service, family.", challenge: "Over-giving, controlling, perfectionist.", group: "Emotional & Relationship" },
+    7: { core: "Intellectual, Spiritual, Introspective", focus: "Solitude, research, deeper truths.", challenge: "Detached, skeptical, emotionally distant.", group: "Spiritual & Intellectual" },
+    8: { core: "Ambitious, Disciplined, Strategic", focus: "Success, money, structure, power.", challenge: "Controlling, emotionally reserved, rigid.", group: "Action & Power" },
+    9: { core: "Compassionate, Humanitarian, Wise", focus: "Helping others, big-picture thinking.", challenge: "Over-emotional, self-sacrificing, unrealistic.", group: "Emotional & Relationship" }
 };
 
 // Matrices: M[BirthNo - 1][LifePathNo - 1] 
@@ -173,7 +209,7 @@ const CAREER_MATRIX = [
 
 // --- API Endpoints ---
 
-// 1. Numerology Calculation Endpoint (Detailed Profile - Updated for Vedic Data)
+// 1. Numerology Calculation Endpoint (Structured Profile Output)
 app.post('/api/numerology-profile', async (req, res) => {
     const { name, dob } = req.body;
 
@@ -181,71 +217,116 @@ app.post('/api/numerology-profile', async (req, res) => {
         return res.status(400).send({ error: "Name and Date of Birth are required." });
     }
 
+    // --- START: Calculation and Data Lookup (Moved outside try/catch) ---
+
+    // Calculate necessary numbers (1-9)
+    const birthNo = calculateBirthNumber(dob);
+    const lifePathNo = calculateLifePathNumber(dob);
+    const destinyNo = calculateDestinyNumber(name);
+
+    // Lookup Archetype and Career based on matrices
+    const archetype = ARCHETYPE_MATRIX[birthNo - 1][lifePathNo - 1];
+    const career = CAREER_MATRIX[birthNo - 1][lifePathNo - 1];
+    
+    // Lookup Planetary Data
+    const birthPlanet = PLANETARY_MAPPING[birthNo];
+    const missionPlanet = PLANETARY_MAPPING[lifePathNo];
+    const destinyPlanet = PLANETARY_MAPPING[destinyNo]; 
+    
+    // Lookup Detailed Profiles 
+    const birthProfile = NUMEROLOGY_PROFILES[birthNo];
+    const missionProfile = NUMEROLOGY_PROFILES[lifePathNo];
+    const destinyProfile = NUMEROLOGY_PROFILES[destinyNo];
+
+    // Basic Validation: Ensure numbers are mapped (i.e., not 0 due to bad input parsing)
+    if (!birthPlanet || !missionPlanet || !destinyPlanet || !birthProfile || !missionProfile || !destinyProfile) {
+         return res.status(400).send({ error: "Invalid date or name format. Could not map numerology numbers (expect 1-9)." });
+    }
+
+    // --- END: Calculation and Data Lookup ---
+
     try {
-        // Calculate necessary numbers (1-9)
-        const birthNo = calculateBirthNumber(dob);
-        const lifePathNo = calculateLifePathNumber(dob);
-
-        // Lookup Archetype and Career based on matrices
-        const archetype = ARCHETYPE_MATRIX[birthNo - 1][lifePathNo - 1];
-        const career = CAREER_MATRIX[birthNo - 1][lifePathNo - 1];
-        
-        // Lookup Planetary Data
-        const birthPlanet = PLANETARY_MAPPING[birthNo];
-        const missionPlanet = PLANETARY_MAPPING[lifePathNo];
-        
-        if (!birthPlanet || !missionPlanet) {
-             throw new Error("Invalid numerology calculation result.");
-        }
-
         const numerologyPrompt = `
-            You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer (Jyotish), specializing in blending Chaldean numerology with Graha (planetary) influences. Your analysis must be structured, professional, and insightful.
-            The entire response MUST be formatted using rich Markdown (headers, lists, bolding, italics) for optimal presentation.
+            You are a highly skilled, engaging, and detailed numerologist and Vedic astrologer (Jyotish). Your response MUST be a single, clean JSON object that strictly adheres to the provided schema. Do not include any text outside the JSON object. Use rich Markdown syntax (lists, bolding, headings) within the string fields for optimal rendering.
 
-            **User Details:**
-            *   Full Name (at birth): ${name}
+            **Core Data:**
+            *   Full Name: ${name}
             *   Date of Birth: ${dob}
-
-            **Numerological Coordinates:**
             *   Personality/Birth Number: ${birthNo} (Governed by ${birthPlanet.planet})
             *   Mission/Life Path Number: ${lifePathNo} (Governed by ${missionPlanet.planet})
+            *   Destiny Number (Name Vibe): ${destinyNo} (Governed by ${destinyPlanet.planet})
             *   Combined Archetype: ${archetype}
             *   Best Fit Career Vocation: ${career}
+            *   Planetary Day of Strength: ${birthPlanet.day}
 
-            **Instructions for Report Generation (Must Address All Points):**
-            1.  **Title the Report:** Use the Archetype as the main title (e.g., "# The ${archetype} Profile").
-            2.  **Section 1: Core Energies & Numbers (Chaldean & Vedic).** Explain the meaning of the Personality Number (${birthNo}) and the Mission Number (${lifePathNo}) based on Chaldean Numerology. **CRITICAL: Immediately follow this with a detailed interpretation of the ruling Grahas (${birthPlanet.planet} and ${missionPlanet.planet}). Discuss the core karmic themes and disposition (Prakriti) imparted by these two major Vedic influences.**
-            3.  **Section 2: Planetary Influence Overlay (Jyotish Focus).** Provide a deep, detailed analysis of how the governing planets—${birthPlanet.planet} (for Personality) and ${missionPlanet.planet} (for Mission)—flavor the user's life according to Vedic wisdom. Discuss the timing (Dasha/Bhukti themes), potential struggles (doshas), and inherent traits the planetary energy adds. Use Jyotish terminology where appropriate (e.g., Sattva, Rajas, Tamas Gunas).
-            4.  **Section 3: The Combined Archetype (${archetype}).** Provide a detailed analysis of what this specific combination means for the user's overall life path, blending the numerical mission with the planetary energies.
-            5.  **Section 4: Career & Vocation (${career}).** Offer insight into why the suggested career path of "${career}" is a powerful fit, linking it to the strengths of their dominant Grahas.
-            6.  **Section 5: Destiny Number (Based on Name).** Calculate the Destiny Number based on the letters of the name (${name}) and provide a detailed explanation of its influence (The 'Why').
-            7.  **Summary & Remedial Suggestions (Vedic).** Provide a short, actionable summary titled "🚀 Navigating Your Path," including suggestions for utilizing their Planetary Day of Strength (e.g., utilize ${birthPlanet.day} for initiating new projects). **CRITICAL: Include specific, practical remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, colors, offerings, specific stones or activities).**
+            // --- NEW CONTEXT INJECTION ---
+            **Detailed Personality Coordinates (INSTRUCTIVE DATA):**
+            *   Birth Number (${birthNo}) Core: ${birthProfile.core} (Focus: ${birthProfile.focus})
+            *   Life Path Number (${lifePathNo}) Core: ${missionProfile.core} (Focus: ${missionProfile.focus})
+            *   Numerical Group Synergy (Birth/Mission): ${birthProfile.group} meets ${missionProfile.group}
+
+            **Instructions for JSON Content Generation:**
+            1.  **title:** Must be the Archetype as the main title (e.g., "The ${archetype} Destiny Profile").
+            2.  **lifePathSummary:** Explain the meaning of the combined Archetype (${archetype}). **CRITICAL:** Analyze the synergy or friction between the Birth Number's group (${birthProfile.group}) and the Life Path Number's group (${missionProfile.group}). Detail how the Birth Number's core drive (${birthProfile.core}) aids or frustrates the Life Path's mission (${missionProfile.core}).
+            3.  **vedicFusion:** Provide a deep, detailed analysis (Jyotish Focus) of how the governing planets—${birthPlanet.planet} (Personality) and ${missionPlanet.planet} (Mission)—flavor the user's life according to Vedic wisdom. Discuss core karmic themes and disposition (Prakriti) imparted by these two Grahas.
+            4.  **strengths:** Identify three key positive personality traits and inherent talents resulting from this specific fusion. Ensure these align with the positive core attributes listed in the coordinates section above. Use a markdown list.
+            5.  **challenges:** Identify three key potential struggles, pitfalls, or growth areas. **CRITICAL:** Ensure the common "weak side" of the Birth Number (e.g., "${birthProfile.challenge}") and Life Path Number (e.g., "${missionProfile.challenge}") are directly addressed as potential struggles or internal conflicts. Use a markdown list.
+            6.  **remedies:** Provide three specific, practical Vedic remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, specific days/colors to utilize, offerings, or activities). Mention utilizing their Planetary Day of Strength (${birthPlanet.day}). Use a markdown list.
+            7.  **destinyExplanation:** Provide a detailed explanation of the Destiny Number (${destinyNo}) and its planetary ruler. **CRITICAL:** Use the Destiny Profile's core traits (${destinyProfile.core}) to describe the ultimate life expression and impact on the world.
         `;
+
+        // Define the JSON structure for the Gemini API call
+        const numerologySchema = {
+            type: "object",
+            properties: {
+                title: { type: "string" },
+                lifePathSummary: { type: "string" },
+                vedicFusion: { type: "string" },
+                strengths: { type: "string" },
+                challenges: { type: "string" },
+                remedies: { type: "string" },
+                destinyExplanation: { type: "string" }
+            },
+            required: ["title", "lifePathSummary", "vedicFusion", "strengths", "challenges", "remedies", "destinyExplanation"]
+        };
+
 
         const aiResponse = await ai.models.generateContent({
             model: numerologyModel,
             contents: numerologyPrompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: numerologySchema
+            }
         });
         
-        // Structure the response data for the Destiny Vault
+        // Parse the AI's JSON text output
+        const resultJson = JSON.parse(aiResponse.text);
+
+        // Structure the response data for the UI and Destiny Vault
         res.json({ 
-            result: aiResponse.text,
+            result: resultJson, // Structured JSON
             metadata: {
                 name,
                 dob,
                 birthNo,
                 lifePathNo,
+                destinyNo, 
                 archetype,
-                birthPlanet,
-                missionPlanet,
                 career,
-                dateGenerated: new Date().toISOString()
+                dateGenerated: new Date().toISOString(),
+                birthPlanet: birthPlanet.planet,
+                missionPlanet: missionPlanet.planet,
+                destinyPlanet: destinyPlanet.planet
             }
         });
 
     } catch (error) {
         console.error("Gemini Numerology Error:", error);
-        res.status(500).send({ error: "Failed to generate comprehensive profile from AI." });
+        if (error.response && error.response.text) {
+             console.error("Raw AI Response:", error.response.text.substring(0, 500));
+        }
+        res.status(500).send({ error: "Failed to generate comprehensive profile from AI. Check API key and model setup." });
     }
 });
 
@@ -324,7 +405,6 @@ app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
 
-
 --- END FILE: server.js ---
 
 --- START FILE: vercel.json ---
@@ -367,13 +447,21 @@ app.listen(PORT, () => {
     
     <!-- Load marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Load html2pdf.js for PDF Export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <!-- STEP 7.1: Load pdfmake for professional PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.9/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.9/vfs_fonts.js"></script>
+    
+    <!-- STEP 1.1: Load Flatpickr CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
     
+    <!-- STEP 5.1: Cosmic Canvas Background -->
+    <canvas id="cosmos"></canvas>
+    
     <!-- 🗂️ Destiny Vault Trigger -->
-    <!-- The vault trigger must be visible outside the main flow to open the vault -->
     <button id="vault-trigger" onclick="toggleVault()">
         <i class="fas fa-box-open"></i> My Destiny Vault
     </button>
@@ -403,7 +491,8 @@ app.listen(PORT, () => {
                     <label for="dob">Date of Birth:</label>
                     <div class="input-field-wrapper">
                         <i class="input-icon fas fa-calendar-alt"></i>
-                        <input type="date" id="dob">
+                        <!-- STEP 1.2: Updated DOB input for Flatpickr -->
+                        <input id="dob" placeholder="Select Date of Birth" autocomplete="off">
                     </div>
                     <p class="helper-text">Your exact date determines your Life Path number.</p>
                 </div>
@@ -415,7 +504,8 @@ app.listen(PORT, () => {
             <!-- Output Wrapper starts hidden -->
             <div id="numerology-output-wrapper" class="hidden">
                 <div class="export-controls">
-                    <button class="export-button" onclick="exportReport('numerology')">Export as PDF</button>
+                    <!-- Updated export button to call the new PDF function -->
+                    <button class="export-button" id="export-pdf-btn" onclick="exportNumerologyReport()">Export as PDF</button>
                     <button class="export-button secondary-button" onclick="copyReportText('numerology')">Copy Text</button>
                 </div>
                 <div id="numerology-output" class="markdown-container">
@@ -444,6 +534,7 @@ app.listen(PORT, () => {
             <!-- Output Wrapper starts hidden -->
             <div id="word-output-wrapper" class="hidden">
                 <div class="export-controls">
+                    <!-- NOTE: Legacy export remains but will show an alert since html2pdf was removed -->
                     <button class="export-button" onclick="exportReport('word')">Export as PDF</button>
                     <button class="export-button secondary-button" onclick="copyReportText('word')">Copy Text</button>
                 </div>
@@ -454,11 +545,10 @@ app.listen(PORT, () => {
         </section>
     </main>
 
-    <!-- 🗂️ Destiny Vault Side Panel (Now a full-screen takeover component) -->
+    <!-- 🗂️ Destiny Vault Side Panel -->
     <div id="destiny-vault" class="closed">
         <div class="vault-header">
             <h3><i class="fas fa-scroll"></i> My Destiny Vault</h3>
-            <!-- Use a dedicated 'Close' action -->
             <button id="vault-close" onclick="toggleVault()"><i class="fas fa-times"></i></button>
         </div>
         <div id="vault-list">
@@ -492,33 +582,181 @@ app.listen(PORT, () => {
         let chatHistory = [];
         const VAULT_KEY = 'destinyVaultProfiles';
 
+        // --- STEP 5.2: Cosmic Animation Script ---
+        const canvas = document.getElementById("cosmos");
+        const ctx = canvas.getContext("2d");
+
+        // Set initial size
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+             canvas.width = window.innerWidth;
+             canvas.height = window.innerHeight;
+        });
+
+        const stars = Array.from({ length: 150 }, () => ({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.5,
+          vx: (Math.random() - 0.5) * 0.005, 
+          vy: 0.05 + Math.random() * 0.1
+        }));
+
+        function animateCosmos() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          stars.forEach(s => {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fill();
+            
+            s.x += s.vx;
+            s.y += s.vy;
+            
+            if (s.y > canvas.height) s.y = 0;
+            if (s.x > canvas.width) s.x = 0;
+            if (s.x < 0) s.x = canvas.width;
+          });
+          requestAnimationFrame(animateCosmos);
+        }
+        
+        // --- Flatpickr Initialization (STEP 1.3) ---
+        flatpickr("#dob", {
+            dateFormat: "Y-m-d", 
+            maxDate: "today",
+            yearSelectorType: "dropdown",
+        });
+        
         // --- Utility Functions ---
 
-        // Function to safely sanitize and render Markdown
-        const renderMarkdown = (markdownText) => {
-            // Note: Marked automatically handles basic XSS sanitation.
-            return marked.parse(markdownText);
+        // NEW UTILITY: Function to convert markdown string content to plain text runs
+        // This function handles simple markdown elements (bolding, lists) 
+        // using pdfmake's 'text' array structure, ensuring dark, readable text.
+        function formatReportContent(markdownText, baseColor = '#222222') {
+            if (!markdownText) return [{ text: 'Content data is missing.', color: '#888', margin: [0, 5, 0, 0] }];
+
+            // CRITICAL FIX: Clean up residual HTML list tags inserted by the AI
+            // 1. Replace <li> with a list marker (* ) and remove closing </li>
+            // Use \s* to handle potential whitespace inside tags, and /gi for case-insensitive global replacement.
+            let cleanedText = markdownText.replace(/<\s*li\s*>/gi, '* ').replace(/<\/\s*li\s*>/gi, '');
+            // 2. Remove <ul> and <ol> tags entirely, including attributes (like <ul style="...">)
+            cleanedText = cleanedText.replace(/<\s*ul[^>]*>/gi, '').replace(/<\/\s*ul\s*>/gi, '');
+            cleanedText = cleanedText.replace(/<\s*ol[^>]*>/gi, '').replace(/<\/\s*ol\s*>/gi, '');
+            
+            // Re-apply original text to start parsing
+            const elements = [];
+            // Use cleanedText here
+            const lines = cleanedText.split('\n'); 
+            let currentList = null;
+            let listType = null;
+            let listMargin = [0, 2, 0, 0];
+            
+            // Function to process a single line for inline bolding
+            const processLine = (line) => {
+                const textRuns = [];
+                // Split by bold markers (**)
+                const parts = line.split(/(\*\*.*?\*\*)/g).filter(p => p.length > 0); 
+
+                parts.forEach(part => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                        // Bold text for keywords
+                        textRuns.push({ text: part.substring(2, part.length - 2), bold: true, color: '#333333' });
+                    } else {
+                        // Standard body text
+                        textRuns.push({ text: part, color: baseColor });
+                    }
+                });
+                return textRuns;
+            };
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) {
+                    currentList = null; // Break list context on empty line
+                    listType = null;
+                    continue;
+                }
+                
+                // Handle Lists (* or - or 1.)
+                if (line.startsWith('* ') || line.startsWith('- ')) {
+                    if (!currentList || listType !== 'ul') {
+                        currentList = { ul: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        elements.push(currentList);
+                        listType = 'ul';
+                    }
+                    // Extract content after the list marker
+                    const content = line.startsWith('* ') ? line.substring(2).trim() : line.substring(2).trim();
+                    currentList.ul.push({ text: processLine(content), margin: listMargin });
+                } else if (line.match(/^\d+\. /)) {
+                    if (!currentList || listType !== 'ol') {
+                        currentList = { ol: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        elements.push(currentList);
+                        listType = 'ol';
+                    }
+                    currentList.ol.push({ text: processLine(line.substring(line.indexOf('.') + 1).trim()), margin: listMargin });
+                } else {
+                    currentList = null;
+                    listType = null;
+                    
+                    // Plain paragraph (use the text array structure for formatting consistency)
+                    elements.push({ text: processLine(line), margin: [0, 5, 0, 0], lineHeight: 1.4 });
+                }
+            }
+            return elements;
+        }
+
+        // Function to safely sanitize and render Markdown (handles structured input)
+        const renderStructuredReport = (structuredData) => {
+            if (!structuredData) return '';
+            
+            // Manually build the report structure using markdown strings from the JSON
+            let markdown = '';
+            
+            // CRITICAL FIX: Use nullish coalescing (?? '') to prevent "undefined" injection
+            markdown += `# ${structuredData.title ?? 'Untitled Destiny Profile'}\n\n`;
+            
+            markdown += `## 1. Core Life Path Summary (Chaldean Numerology)\n`;
+            markdown += structuredData.lifePathSummary ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 2. Vedic Planetary Fusion (Graha Drishti)\n`;
+            markdown += structuredData.vedicFusion ?? 'Content not generated. Please try again.';
+
+            markdown += `\n## 3. Destiny Number (Name Expression)\n`;
+            markdown += structuredData.destinyExplanation ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 4. Strengths, Challenges & Remedial Actions\n`;
+            
+            markdown += `\n### 💡 Key Strengths\n`;
+            markdown += structuredData.strengths ?? '* Strengths section failed to load.';
+
+            markdown += `\n### 🚧 Potential Challenges\n`;
+            markdown += structuredData.challenges ?? '* Challenges section failed to load.';
+            
+            markdown += `\n### 🕉️ Remedial Suggestions (Upayes)\n`;
+            markdown += structuredData.remedies ?? '* Remedial suggestions failed to load.';
+            
+            // Render the final Markdown string to HTML
+            return marked.parse(markdown);
         };
         
-        // Generates a simple unique ID (for vault tracking)
         const generateId = () => Math.random().toString(36).substring(2, 9);
         
-        // --- Destiny Vault (Local Storage) Logic ---
+        // --- Destiny Vault (Local Storage) Logic - Updated for JSON Structure ---
         
         function loadVault() {
             try {
-                // Ensure array is returned, even if storage is empty or corrupted
                 const profiles = JSON.parse(localStorage.getItem(VAULT_KEY) || '[]');
-                // Sort by creation date descending
                 return profiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             } catch (e) {
-                console.error("Error loading vault from local storage. Storage might be corrupt. Clearing vault.", e);
-                // Clear potentially corrupted storage to prevent repeated errors
+                console.error("Error loading vault. Clearing corrupt storage.", e);
                 localStorage.removeItem(VAULT_KEY); 
                 return [];
             }
         }
 
+        // STEP 4.1: Modified save function to handle structured reports
         function saveProfileToVault(profileData) {
             const profiles = loadVault();
             const newProfile = { 
@@ -527,11 +765,13 @@ app.listen(PORT, () => {
                 createdAt: new Date().toISOString()
             };
             
-            profiles.unshift(newProfile);
-            // Limit the vault size (e.g., to 20 profiles)
-            localStorage.setItem(VAULT_KEY, JSON.stringify(profiles.slice(0, 20)));
+            if (!newProfile.result || !newProfile.result.title) {
+                console.error("Attempted to save corrupted or incomplete structured profile data.");
+                return;
+            }
             
-            // Re-render the UI immediately
+            profiles.unshift(newProfile);
+            localStorage.setItem(VAULT_KEY, JSON.stringify(profiles.slice(0, 20)));
             renderVault();
         }
 
@@ -545,31 +785,18 @@ app.listen(PORT, () => {
             let corruptionDetected = false;
 
             profiles.forEach(profile => {
-                // Critical Check: Ensure required metadata is present
-                if (!profile.metadata || !profile.metadata.name || !profile.result) {
-                    console.warn('Skipping and removing corrupted vault profile (Missing metadata or result):', profile);
+                if (!profile.metadata || !profile.metadata.name || !profile.result || typeof profile.result !== 'object' || !profile.result.title) {
                     corruptionDetected = true;
                     return; 
                 }
                 
-                validProfiles.push(profile); // Add to the list of valid profiles
+                validProfiles.push(profile);
                 
                 const date = new Date(profile.createdAt).toLocaleDateString();
                 const card = document.createElement('div');
                 card.classList.add('vault-profile-card');
                 
-                // Get the main title from the generated report if possible (first H1)
-                const tempDiv = document.createElement('div');
-                try {
-                    // Sanitize the result before parsing
-                    tempDiv.innerHTML = renderMarkdown(profile.result.substring(0, 500)); 
-                } catch (e) {
-                    console.error("Error rendering markdown for vault title extraction:", e);
-                    corruptionDetected = true;
-                    return;
-                }
-                
-                const reportTitle = tempDiv.querySelector('h1') ? tempDiv.querySelector('h1').textContent : profile.metadata.archetype;
+                const reportTitle = profile.result.title || "Untitled Report";
                 
                 card.innerHTML = `
                     <h4>${reportTitle}</h4>
@@ -584,13 +811,10 @@ app.listen(PORT, () => {
                 renderedCount++;
             });
             
-            // FIX: If corruption was detected, rewrite local storage only with valid profiles
             if (corruptionDetected) {
-                console.log("Auto-cleaning vault: Rewriting Local Storage with valid profiles only.");
                 localStorage.setItem(VAULT_KEY, JSON.stringify(validProfiles));
             }
 
-            // Display empty message if no profiles were successfully rendered
             if (renderedCount === 0) {
                  listDiv.innerHTML = '<p class="vault-empty-message">Your Destiny Vault is empty. Generate a profile to save it!</p>';
             }
@@ -601,27 +825,20 @@ app.listen(PORT, () => {
             const profile = profiles.find(p => p.id === id);
 
             if (profile) {
-                // Populate the input fields (Name and DOB)
                 document.getElementById('full-name').value = profile.metadata.name;
-                // Convert stored ISO date to input[type="date"] format (YYYY-MM-DD)
-                const isoDate = new Date(profile.metadata.dob).toISOString().split('T')[0];
-                document.getElementById('dob').value = isoDate;
+                document.getElementById('dob').value = profile.metadata.dob; 
                 
-                // Render the report content
                 const outputWrapper = document.getElementById('numerology-output-wrapper');
                 const outputDiv = document.getElementById('numerology-output');
                 const statusDiv = document.getElementById('calc-status');
                 
-                outputDiv.innerHTML = renderMarkdown(profile.result);
+                outputDiv.innerHTML = renderStructuredReport(profile.result);
                 outputWrapper.classList.remove('hidden');
                 
                 statusDiv.textContent = `Profile for ${profile.metadata.name} loaded from Vault.`;
                 statusDiv.style.color = 'var(--secondary-color)';
                 
-                // Close the vault
-                toggleVault(false); // Explicitly close the vault
-                
-                // Scroll to the output section
+                toggleVault(false);
                 document.getElementById('numerology-output-wrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
             } else {
@@ -633,23 +850,20 @@ app.listen(PORT, () => {
         function deleteProfileFromVault(id) {
             if (confirm("Are you sure you want to permanently delete this profile?")) {
                 let profiles = loadVault();
-                // Filter out the deleted ID
                 profiles = profiles.filter(p => p.id !== id);
                 localStorage.setItem(VAULT_KEY, JSON.stringify(profiles));
-                renderVault(); // Update UI
+                renderVault();
             }
         }
 
         function clearVault() {
             if (confirm("Are you sure you want to delete ALL profiles from your Destiny Vault? This cannot be undone.")) {
-                // Critical step: Remove all data
                 localStorage.removeItem(VAULT_KEY); 
-                renderVault(); // Update UI to empty state
+                renderVault();
                 alert("Destiny Vault cleared.");
             }
         }
-
-        // State Management for the Vault (Fixing the UI Takeover Issue)
+        
         function toggleVault(shouldOpen) {
             const vault = document.getElementById('destiny-vault');
             const body = document.body;
@@ -658,7 +872,7 @@ app.listen(PORT, () => {
 
             if (isOpen) {
                 vault.classList.add('open');
-                body.classList.add('vault-open'); // New class for state management
+                body.classList.add('vault-open');
                 renderVault();
             } else {
                 vault.classList.remove('open');
@@ -666,20 +880,20 @@ app.listen(PORT, () => {
             }
         }
 
-        // Initialize vault rendering on page load
+        // Initialize vault rendering and cosmos animation
         document.addEventListener('DOMContentLoaded', () => {
              renderVault();
-             // Pre-render the chatbot message, but keep it closed
+             animateCosmos(); // Start the animation
              if (chatHistory.length === 0) {
                  chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
              }
         });
         
         
-        // --- Core Calculation Logic (Includes Save Call) ---
+        // --- Core Calculation Logic (Updated for Structured Response) ---
         async function calculateNumerologyProfile() {
             const name = document.getElementById('full-name').value;
-            const dob = document.getElementById('dob').value;
+            const dob = document.getElementById('dob').value; 
             const outputWrapper = document.getElementById('numerology-output-wrapper');
             const outputDiv = document.getElementById('numerology-output');
             const statusDiv = document.getElementById('calc-status');
@@ -693,12 +907,11 @@ app.listen(PORT, () => {
                 return;
             }
 
-            // Start Loading State UI
             statusDiv.textContent = "Analyzing your Destiny Matrix...";
             statusDiv.style.color = 'var(--secondary-color)';
             outputDiv.innerHTML = '<p class="loading-animation">Calculating core vibration and planetary influences...</p>';
             calcButton.classList.add('button-loading');
-            calcButton.innerHTML = '<span>Calculating Destiny...</span>'; // Set loading text
+            calcButton.innerHTML = '<span>Calculating Destiny...</span>';
             calcButton.disabled = true;
 
             try {
@@ -710,16 +923,29 @@ app.listen(PORT, () => {
 
                 const data = await response.json();
 
-                if (data.error || !response.ok) {
-                    statusDiv.textContent = `Error: Profile generation failed.`;
+                if (!response.ok) {
+                    // FIX 1: Ensure we catch non-200 responses (like the 500 sent by server.js on API failure)
+                    const errorMessage = data.error || `Server responded with status ${response.status}.`;
+                    statusDiv.textContent = `Critical Error: ${errorMessage}`;
                     statusDiv.style.color = 'var(--accent-gold)'; 
-                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Profile generation failed: ${data.error || response.statusText}</p>`;
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Error during processing. This is often due to an overloaded AI model (Code 503) or a misconfigured API key.</p>`;
                     return;
                 }
-
+                
+                // FIX 2: Check for essential content validity (i.e., did the AI actually return the expected structured data?)
+                if (!data.result || typeof data.result !== 'object' || !data.result.title) {
+                    statusDiv.textContent = "Error: AI generation failed to return a structured profile. Try again.";
+                    statusDiv.style.color = 'var(--accent-gold)'; 
+                    outputDiv.innerHTML = `<p style="color: var(--accent-gold);">The AI failed to generate the structured report, possibly due to a temporary service issue. Please wait a moment and try recalculating.</p>`;
+                    return;
+                }
+                
+                // SUCCESS PATH
                 statusDiv.textContent = "Profile Generated Successfully. Report saved to your Destiny Vault.";
                 statusDiv.style.color = 'var(--secondary-color)';
-                outputDiv.innerHTML = renderMarkdown(data.result);
+                
+                // Use the new structured renderer
+                outputDiv.innerHTML = renderStructuredReport(data.result);
                 outputWrapper.classList.remove('hidden'); 
                 
                 // CRITICAL: Save the generated profile to the Destiny Vault immediately
@@ -727,19 +953,19 @@ app.listen(PORT, () => {
 
 
             } catch (error) {
-                statusDiv.textContent = "A network error occurred. Check your connection.";
+                statusDiv.textContent = "A network error occurred or the AI failed to return structured data.";
                 statusDiv.style.color = 'var(--accent-gold)';
-                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network Error: ${error.message}</p>`;
+                outputDiv.innerHTML = `<p style="color: var(--accent-gold);">Network/Parsing Error: ${error.message}</p>`;
                 console.error('Calculation Error:', error);
             } finally {
                 // End Loading State UI
                 calcButton.classList.remove('button-loading');
-                calcButton.innerHTML = 'Reveal My Numbers ✨'; // Reset button text
+                calcButton.innerHTML = 'Reveal My Numbers ✨';
                 calcButton.disabled = false;
             }
         }
         
-        // --- Word Analysis (Updated for Loading State) ---
+        // --- Word Analysis (Remains the same, returns raw markdown) ---
         async function analyzeWordProfile() {
             const input = document.getElementById('input-word').value;
             const outputWrapper = document.getElementById('word-output-wrapper');
@@ -783,7 +1009,7 @@ app.listen(PORT, () => {
 
                 statusDiv.textContent = "Vibration Analysis Complete.";
                 statusDiv.style.color = 'var(--secondary-color)';
-                outputDiv.innerHTML = renderMarkdown(data.result);
+                outputDiv.innerHTML = marked.parse(data.result); 
                 outputWrapper.classList.remove('hidden');
 
             } catch (error) {
@@ -798,57 +1024,204 @@ app.listen(PORT, () => {
             }
         }
 
-        // --- Export Functions (PDF/Copy logic kept the same) ---
-        // [getReportData, exportReport, copyReportText functions remain exactly as in the previous step]
+        // --- Export Functions (REWRITTEN: Professional PDFMake - GOAL 1) ---
+        
+        // Removed markdownToPdfMake utility function
+        
+        function exportNumerologyReport() {
+            const profiles = loadVault();
+            const reportData = profiles[0]; 
+
+            if (!reportData || !reportData.result || typeof reportData.result !== 'object') {
+                alert("Please generate a Destiny Profile first, and ensure the Destiny Vault is not empty.");
+                return;
+            }
+
+            const meta = reportData.metadata;
+            const data = reportData.result;
+            
+            // --- PROFESSIONAL PDF STYLES ---
+            const styles = {
+                header: { 
+                    fontSize: 24, 
+                    bold: true, 
+                    color: '#2c3e50', // Dark Blue/Black for print
+                    alignment: 'center', 
+                    margin: [0, 0, 0, 10] 
+                },
+                title: { 
+                    fontSize: 32, 
+                    bold: true, 
+                    color: '#8e44ad', // Deep Purple
+                    alignment: 'center', 
+                    margin: [0, 20, 0, 30] 
+                },
+                sectionHeader: { 
+                    fontSize: 18, 
+                    bold: true, 
+                    color: '#34495e', // Dark Gray-Blue
+                    margin: [0, 30, 0, 10], 
+                    decoration: 'underline', 
+                    decorationColor: '#bdc3c7',
+                    pageBreak: 'before' // Explicit page break for major sections
+                },
+                subHeader: { 
+                    fontSize: 14, 
+                    bold: true, 
+                    color: '#34495e', 
+                    margin: [0, 15, 0, 5] 
+                },
+                body: { 
+                    fontSize: 11, 
+                    color: '#222222', // Near-black for print readability
+                    lineHeight: 1.5, 
+                    margin: [0, 2, 0, 0] 
+                },
+                tableHeader: {
+                    fontSize: 12, 
+                    bold: true, 
+                    color: '#222222', 
+                    fillColor: '#ecf0f1', // Light Gray background for header row
+                    alignment: 'center'
+                },
+                meta: { 
+                    fontSize: 10, 
+                    color: '#7f8c8d', 
+                    alignment: 'right', 
+                    margin: [0, 0, 0, 4] 
+                }
+            };
+
+            // --- PROFESSIONAL PDF CONTENT STRUCTURE ---
+            const docDefinition = {
+                pageSize: 'A4',
+                // Explicitly set page margins (A4 standard margin)
+                pageMargins: [60, 60, 60, 60], 
+                
+                // White background is standard for printing (Dark background removed)
+                background: () => ({
+                    canvas: [{
+                        type: 'rect',
+                        x: 0, y: 0, w: 595, h: 842,
+                        color: '#FFFFFF' // Ensure white background
+                    }]
+                }),
+                
+                header: (currentPage, pageCount) => ({
+                    text: `Destiny Profile Report | Page ${currentPage} of ${pageCount}`,
+                    style: 'meta',
+                    margin: [60, 20, 60, 0]
+                }),
+
+                content: [
+                    // --- Page 1: Title and Metadata ---
+                    { text: 'The Destiny Matrix', style: 'header' },
+                    { text: data.title, style: 'title' },
+
+                    // User Details Table (GOAL: Fix Tables)
+                    {
+                        text: 'Core Numerological Coordinates',
+                        style: 'subHeader',
+                        margin: [0, 5, 0, 5]
+                    },
+                    {
+                        table: {
+                            headerRows: 1,
+                            widths: ['*', '*', '*', '*', '*'],
+                            body: [
+                                [
+                                    { text: 'Name', style: 'tableHeader' }, 
+                                    { text: 'DOB', style: 'tableHeader' }, 
+                                    { text: 'Life Path', style: 'tableHeader' }, 
+                                    { text: 'Birth No.', style: 'tableHeader' }, 
+                                    { text: 'Destiny No.', style: 'tableHeader' }
+                                ],
+                                [
+                                    { text: meta.name, style: 'body', alignment: 'center' }, 
+                                    { text: meta.dob, style: 'body', alignment: 'center' }, 
+                                    { text: `${meta.lifePathNo} (${meta.missionPlanet})`, style: 'body', alignment: 'center' }, 
+                                    { text: `${meta.birthNo} (${meta.birthPlanet})`, style: 'body', alignment: 'center' }, 
+                                    { text: `${meta.destinyNo} (${meta.destinyPlanet})`, style: 'body', alignment: 'center' }
+                                ]
+                            ]
+                        },
+                        layout: {
+                            // Simple, print-safe horizontal lines
+                            hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+                            vLineWidth: () => 0,
+                            hLineColor: () => '#95a5a6',
+                            fillColor: (i) => (i === 0) ? '#ecf0f1' : null,
+                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 8, paddingBottom: () => 8
+                        },
+                        margin: [0, 10, 0, 30] // Increased spacing after the table
+                    },
+
+                    // Section 1: Core Life Path (GOAL: Content Flow)
+                    { text: '1. Core Life Path Summary (Chaldean Numerology)', style: 'sectionHeader', pageBreak: 'before' }, 
+                    ...formatReportContent(data.lifePathSummary),
+
+                    // Section 2: Vedic Fusion
+                    { text: `2. Vedic Planetary Fusion (Graha Drishti)`, style: 'sectionHeader' },
+                    ...formatReportContent(data.vedicFusion),
+                    
+                    // Section 3: Destiny Number
+                    { text: `3. Destiny Number & Ultimate Expression`, style: 'sectionHeader' },
+                    ...formatReportContent(data.destinyExplanation),
+
+                    // Section 4: Key Traits
+                    { text: '4. Key Strengths & Challenges', style: 'sectionHeader' },
+                    
+                    { text: 'Key Strengths:', style: 'subHeader' },
+                    ...formatReportContent(data.strengths),
+
+                    { text: 'Potential Challenges:', style: 'subHeader' },
+                    ...formatReportContent(data.challenges),
+
+                    // Section 5: Remedies
+                    { text: '5. Remedial Suggestions (Upayes)', style: 'sectionHeader' },
+                    ...formatReportContent(data.remedies),
+                    
+                    // Footer Info
+                    { 
+                        text: `\nReport Generated: ${new Date().toLocaleDateString()}`, 
+                        style: 'meta',
+                        margin: [0, 30, 0, 0] // Ensure margin for clean look
+                    }
+                ],
+                styles: styles
+            };
+
+            // Download the PDF
+            pdfMake.createPdf(docDefinition).download(`${meta.name.replace(/\s/g, '_')}_Destiny_Report.pdf`);
+        }
+        
+        // This function intercepts the word analysis export which relied on html2pdf
+        function exportReport(type) {
+             if (type === 'numerology') {
+                 exportNumerologyReport();
+             } else {
+                 alert("The Word Analysis PDF export is temporarily disabled. Please use the Destiny Profile PDF function.");
+             }
+        }
+        
+        // --- Copy Report Text (Adapted for Structured Data) ---
 
         function getReportData(type) {
             if (type === 'numerology') {
+                const profiles = loadVault();
+                if (profiles.length === 0) return null;
+                // Rely on the innerText of the rendered markdown output
                 return {
-                    element: document.getElementById('numerology-output'),
-                    name: document.getElementById('full-name').value || 'User',
-                    date: new Date().toISOString().slice(0, 10),
-                    reportType: 'Personal Destiny Matrix'
+                    element: document.getElementById('numerology-output'), 
+                    name: profiles[0].metadata.name,
                 };
             } else if (type === 'word') {
                 return {
                     element: document.getElementById('word-output'),
                     name: document.getElementById('input-word').value || 'Vibration',
-                    date: new Date().toISOString().slice(0, 10),
-                    reportType: 'Vibration Analysis'
                 };
             }
             return null;
-        }
-
-        function exportReport(type) {
-            const report = getReportData(type);
-            if (!report || !report.element.innerHTML.trim()) {
-                alert("Please generate a profile first before attempting to export.");
-                return;
-            }
-            const pdfContent = document.createElement('div');
-            pdfContent.style.padding = '20px';
-            pdfContent.style.fontFamily = 'Arial, sans-serif';
-
-            pdfContent.innerHTML = `
-                <div style="text-align: center; border-bottom: 2px solid #5D50FF; padding-bottom: 10px; margin-bottom: 20px;">
-                    <h1 style="color: #5D50FF; margin: 0;">The Destiny Matrix: ${report.reportType}</h1>
-                    <p style="margin: 5px 0 0 0; color: #666;">Report for: ${report.name} | Date: ${report.date}</p>
-                </div>
-            `;
-            pdfContent.appendChild(report.element.cloneNode(true));
-            
-            const filename = `${report.name.replace(/\s/g, '_')}_${report.reportType.replace(/\s/g, '_')}_${report.date}.pdf`;
-            
-            const options = {
-                margin: 10,
-                filename: filename,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, logging: false, dpi: 192, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().from(pdfContent).set(options).save();
         }
 
         async function copyReportText(type) {
@@ -882,18 +1255,17 @@ app.listen(PORT, () => {
             }
         }
 
-        // --- Chatbot Logic (Unchanged, except for DOMContentLoaded initialization) ---
+        // --- Chatbot Logic (Unchanged) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
             chatWindow.classList.toggle('closed');
-            // History is now initialized in DOMContentLoaded
         }
         
         function addMessageToChat(text, sender) {
             const messagesDiv = document.getElementById('chat-messages');
             const messageElement = document.createElement('div');
             messageElement.classList.add('chat-message', sender);
-            messageElement.innerHTML = renderMarkdown(text); 
+            messageElement.innerHTML = marked.parse(text); 
             messagesDiv.appendChild(messageElement);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
@@ -976,15 +1348,23 @@ body {
     font-family: 'Poppins', sans-serif;
     margin: 0;
     padding: 0;
-    background: linear-gradient(135deg, var(--background-dark) 0%, #1A1F3C 100%);
+    background-color: var(--background-dark); 
     color: var(--text-light);
     line-height: 1.7;
     min-height: 100vh;
-    overflow-x: hidden; /* Prevent horizontal scroll when vault is open */
+    overflow-x: hidden; 
+}
+
+/* --- STEP 5.3: Cosmic Canvas Background --- */
+#cosmos {
+    position: fixed;
+    inset: 0;
+    z-index: -2; 
+    pointer-events: none;
+    background: linear-gradient(135deg, var(--background-dark) 0%, #1A1F3C 100%);
 }
 
 /* --- VAULT OPEN STATE MANAGEMENT --- */
-/* When the vault is open, dim the main content and hide the trigger button */
 body.vault-open main,
 body.vault-open header {
     filter: blur(2px) grayscale(30%);
@@ -997,7 +1377,6 @@ body.vault-open #vault-trigger {
     opacity: 0;
     pointer-events: none;
 }
-/* Ensure the chatbot remains accessible but is slightly blurred/dimmed */
 body.vault-open #chatbot-container {
      filter: blur(1px) brightness(0.8);
 }
@@ -1011,6 +1390,7 @@ header {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     position: relative;
     overflow: hidden; 
+    z-index: 1;
 }
 
 /* Subtle background glow/texture for Hero Section */
@@ -1059,6 +1439,8 @@ main {
     display: flex;
     flex-direction: column;
     gap: 30px;
+    position: relative;
+    z-index: 1;
 }
 
 /* --- Card Styles --- */
@@ -1111,10 +1493,11 @@ main {
     padding-left: 5px;
 }
 
+/* Targeting Flatpickr input and normal text input */
 input[type="text"], 
-input[type="date"] {
+.flatpickr-input { 
     width: 100%;
-    padding: 14px 14px 14px 40px; /* Increased left padding for icon */
+    padding: 14px 14px 14px 40px; 
     background-color: rgba(0, 0, 0, 0.3); 
     color: var(--text-dark);
     border: 1px solid var(--border-color);
@@ -1125,7 +1508,7 @@ input[type="date"] {
     transition: border-color 0.3s, box-shadow 0.3s;
 }
 input[type="text"]:focus, 
-input[type="date"]:focus {
+.flatpickr-input:focus {
     border-color: var(--accent-gold);
     outline: none;
     box-shadow: 0 0 10px rgba(244, 196, 48, 0.5); /* Gold glow on focus */
@@ -1136,6 +1519,37 @@ input[type="date"]:focus {
 .input-group.full-width .input-icon {
     left: 12px;
 }
+
+/* Flatpickr Dark Theme adjustments */
+.flatpickr-calendar {
+    background: #1A1F3C !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-deep) !important;
+}
+.flatpickr-day {
+    color: var(--text-light) !important;
+}
+.flatpickr-day.selected, .flatpickr-day.selected:hover {
+    background: var(--secondary-color) !important;
+    border-color: var(--secondary-color) !important;
+    color: var(--background-dark) !important;
+}
+.flatpickr-day.today {
+    border-color: var(--accent-gold) !important;
+}
+.flatpickr-day.today:hover {
+    background: var(--accent-gold) !important;
+    color: var(--background-dark) !important;
+}
+.flatpickr-months .flatpickr-month {
+    color: var(--secondary-color) !important;
+}
+.flatpickr-current-month .flatpickr-monthDropDown-months, 
+.numInputWrapper {
+    color: var(--text-light) !important;
+    background: transparent !important;
+}
+
 
 /* --- CTA Button & Loading State --- */
 button {
@@ -1153,7 +1567,7 @@ button {
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: hidden; /* For progress bar */
+    overflow: hidden; 
 }
 
 /* Glow Pulse effect */
@@ -1162,9 +1576,37 @@ button:not(.export-button):hover {
     box-shadow: 0 0 15px rgba(244, 196, 48, 0.7), 0 0 5px rgba(244, 196, 48, 1) inset;
 }
 
+/* STEP 3.2: Floating Animation for the Vault Trigger */
+@keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+#vault-trigger {
+    animation: float 3s ease-in-out infinite;
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    padding: 12px 20px;
+    background-color: var(--primary-color);
+    color: var(--text-dark);
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-deep);
+    z-index: 1010;
+    transition: background-color 0.2s;
+}
+#vault-trigger:hover {
+    background-color: #553399;
+    animation-play-state: paused; 
+}
+
+
 .button-loading {
     cursor: not-allowed;
-    background-color: #f7d979; /* muted gold */
+    background-color: #f7d979; 
     position: relative;
     overflow: hidden;
 }
@@ -1176,7 +1618,7 @@ button:not(.export-button):hover {
     height: 100%;
     width: 0;
     background-color: rgba(0, 0, 0, 0.1);
-    animation: progress 5s forwards; /* 5s visual progress bar */
+    animation: progress 5s forwards; 
     z-index: 1;
 }
 .button-loading span {
@@ -1253,28 +1695,10 @@ button:not(.export-button):hover {
 
 
 /* --- Destiny Vault Side Panel Styles --- */
-#vault-trigger {
-    position: fixed;
-    top: 25px;
-    right: 25px;
-    padding: 12px 20px;
-    background-color: var(--primary-color);
-    color: var(--text-dark);
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: var(--shadow-deep);
-    z-index: 1010;
-    transition: background-color 0.2s;
-}
-#vault-trigger:hover {
-    background-color: #553399;
-}
-
 #destiny-vault {
     position: fixed;
     top: 0;
-    right: -400px; /* Hidden state */
+    right: -400px; 
     width: 350px;
     max-width: 90vw;
     height: 100%;
@@ -1371,7 +1795,7 @@ button:not(.export-button):hover {
     color: var(--background-dark);
 }
 .vault-actions .delete-btn {
-    background-color: #8c0000; /* Dark red for deletion */
+    background-color: #8c0000; 
 }
 .vault-actions .delete-btn:hover {
     background-color: #b30000;
@@ -1407,12 +1831,12 @@ button:not(.export-button):hover {
     }
 }
 
-/* --- Floating AI Chatbot Styles (New/Improved) --- */
+/* --- Floating AI Chatbot Styles (STEP 3.1: Resizing) --- */
 #chatbot-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 320px;
+    width: 320px; /* Fixed width */
     max-height: 80vh;
     box-shadow: var(--shadow-deep);
     border-radius: 12px;
@@ -1443,8 +1867,8 @@ button:not(.export-button):hover {
 #chat-window {
     display: flex;
     flex-direction: column;
-    height: 400px; 
-    background-color: #1A1F3C; /* Dark card background */
+    height: 420px; /* STEP 3.1: Fixed height */
+    background-color: #1A1F3C; 
     transition: all 0.3s ease-in-out;
 }
 
@@ -1552,7 +1976,7 @@ button:not(.export-button):hover {
     font-size: 0.9em;
     margin-top: 0;
     height: 40px;
-    width: 70px; /* fixed width for better alignment */
+    width: 70px; 
 }
 
 /* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
@@ -1564,6 +1988,7 @@ button:not(.export-button):hover {
         bottom: 10px;
     }
 }
+
 
 
 --- END FILE: public\style.css ---

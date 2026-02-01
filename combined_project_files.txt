@@ -261,33 +261,40 @@ app.post('/api/numerology-profile', async (req, res) => {
 
             // --- NEW CONTEXT INJECTION ---
             **Detailed Personality Coordinates (INSTRUCTIVE DATA):**
-            *   Birth Number (${birthNo}) Core: ${birthProfile.core} (Focus: ${birthProfile.focus})
-            *   Life Path Number (${lifePathNo}) Core: ${missionProfile.core} (Focus: ${missionProfile.focus})
+            *   Birth Number (${birthNo}) Core: ${birthProfile.core} (Focus: ${birthProfile.focus}) (Challenge: ${birthProfile.challenge})
+            *   Life Path Number (${lifePathNo}) Core: ${missionProfile.core} (Focus: ${missionProfile.focus}) (Challenge: ${missionProfile.challenge})
+            *   Destiny Number (${destinyNo}) Core: ${destinyProfile.core} (Focus: ${destinyProfile.focus})
             *   Numerical Group Synergy (Birth/Mission): ${birthProfile.group} meets ${missionProfile.group}
 
             **Instructions for JSON Content Generation:**
             1.  **title:** Must be the Archetype as the main title (e.g., "The ${archetype} Destiny Profile").
-            2.  **lifePathSummary:** Explain the meaning of the combined Archetype (${archetype}). **CRITICAL:** Analyze the synergy or friction between the Birth Number's group (${birthProfile.group}) and the Life Path Number's group (${missionProfile.group}). Detail how the Birth Number's core drive (${birthProfile.core}) aids or frustrates the Life Path's mission (${missionProfile.core}).
-            3.  **vedicFusion:** Provide a deep, detailed analysis (Jyotish Focus) of how the governing planets—${birthPlanet.planet} (Personality) and ${missionPlanet.planet} (Mission)—flavor the user's life according to Vedic wisdom. Discuss core karmic themes and disposition (Prakriti) imparted by these two Grahas.
-            4.  **strengths:** Identify three key positive personality traits and inherent talents resulting from this specific fusion. Ensure these align with the positive core attributes listed in the coordinates section above. Use a markdown list.
-            5.  **challenges:** Identify three key potential struggles, pitfalls, or growth areas. **CRITICAL:** Ensure the common "weak side" of the Birth Number (e.g., "${birthProfile.challenge}") and Life Path Number (e.g., "${missionProfile.challenge}") are directly addressed as potential struggles or internal conflicts. Use a markdown list.
-            6.  **remedies:** Provide three specific, practical Vedic remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, specific days/colors to utilize, offerings, or activities). Mention utilizing their Planetary Day of Strength (${birthPlanet.day}). Use a markdown list.
-            7.  **destinyExplanation:** Provide a detailed explanation of the Destiny Number (${destinyNo}) and its planetary ruler. **CRITICAL:** Use the Destiny Profile's core traits (${destinyProfile.core}) to describe the ultimate life expression and impact on the world.
+            2.  **lifePathSummary:** (Core Identity) Explain the fundamental meaning of the Birth/Life Path Archetype (${archetype}). Detail the synergy/friction between the groups (${birthProfile.group} vs ${missionProfile.group}).
+            3.  **vedicFusion:** (Vedic Insight) Detailed Jyotish analysis of the governing planets—${birthPlanet.planet} (Personality) and ${missionPlanet.planet} (Mission)—discussing core karmic themes, disposition, and how the energies manifest.
+            4.  **psychologicalProfile:** (Personality & Psychological Profile) A detailed analysis covering key strengths, emotional patterns, thinking style, and the inherent conflict/weakness derived from both Birth (${birthProfile.challenge}) and Life Path (${missionProfile.challenge}) numbers. Use markdown lists to structure strengths and challenges.
+            5.  **relationshipAnalysis:** (Love & Relationships) Analyze the user's love style, emotional needs, and core relationship challenges derived from the combined numbers. Suggest ideal compatibility traits.
+            6.  **careerFinancialOutlook:** (Career & Money) Based on the vocation (${career}), analyze the user's natural work style (leader/strategist/creator), money mindset, and earning potential. Provide practical, high-level career guidance.
+            7.  **spiritualPurpose:** (Spiritual Growth & Purpose) Discuss the user's unique Karmic lessons and Soul Mission according to their numbers. Focus on inner healing themes.
+            8.  **destinyExplanation:** (Ultimate Expression) Explain the Destiny Number (${destinyNo}) using its core traits (${destinyProfile.core}) to describe the ultimate life expression and impact on the world (the Name Vibe).
+            9.  **remediesGuidance:** (Action Steps) Provide specific, practical remedies (Upayes) based on the combined planetary influences. Mention utilizing their Planetary Day of Strength (${birthPlanet.day}). Conclude with simple do's and don'ts. Use a markdown list.
+            10. **keyTakeaways:** (Summary Snapshot) Provide a brief, bulleted list summary (1-2 sentences per point) covering: Top Strength, Biggest Growth Area, and Current Life Theme. Use a markdown list.
         `;
 
-        // Define the JSON structure for the Gemini API call
+        // Define the JSON structure for the Gemini API call (EXPANDED)
         const numerologySchema = {
             type: "object",
             properties: {
                 title: { type: "string" },
                 lifePathSummary: { type: "string" },
                 vedicFusion: { type: "string" },
-                strengths: { type: "string" },
-                challenges: { type: "string" },
-                remedies: { type: "string" },
-                destinyExplanation: { type: "string" }
+                psychologicalProfile: { type: "string" }, // NEW
+                relationshipAnalysis: { type: "string" }, // NEW
+                careerFinancialOutlook: { type: "string" }, // NEW
+                spiritualPurpose: { type: "string" }, // NEW
+                remediesGuidance: { type: "string" }, // RENAMED/EXPANDED
+                keyTakeaways: { type: "string" }, // NEW
+                destinyExplanation: { type: "string" } // Kept, but moved to the end of the schema definition
             },
-            required: ["title", "lifePathSummary", "vedicFusion", "strengths", "challenges", "remedies", "destinyExplanation"]
+            required: ["title", "lifePathSummary", "vedicFusion", "psychologicalProfile", "relationshipAnalysis", "careerFinancialOutlook", "spiritualPurpose", "remediesGuidance", "destinyExplanation", "keyTakeaways"]
         };
 
 
@@ -317,7 +324,8 @@ app.post('/api/numerology-profile', async (req, res) => {
                 dateGenerated: new Date().toISOString(),
                 birthPlanet: birthPlanet.planet,
                 missionPlanet: missionPlanet.planet,
-                destinyPlanet: destinyPlanet.planet
+                destinyPlanet: destinyPlanet.planet,
+                birthDay: birthPlanet.day // <-- ADDED: Expose the Planetary Day of Strength
             }
         });
 
@@ -463,7 +471,11 @@ app.listen(PORT, () => {
     
     <!-- 🗂️ Destiny Vault Trigger -->
     <button id="vault-trigger" onclick="toggleVault()">
-        <i class="fas fa-box-open"></i> My Destiny Vault
+        <!-- Standard Icon -->
+        <i class="fas fa-box-open desktop-icon"></i> 
+        <!-- Mobile Icon (Hamburger) -->
+        <i class="fas fa-bars mobile-icon"></i>
+        <span class="desktop-text"> My Destiny Vault</span>
     </button>
     
     <header>
@@ -492,7 +504,7 @@ app.listen(PORT, () => {
                     <div class="input-field-wrapper">
                         <i class="input-icon fas fa-calendar-alt"></i>
                         <!-- STEP 1.2: Updated DOB input for Flatpickr -->
-                        <input id="dob" placeholder="Select Date of Birth" autocomplete="off">
+                        <input id="dob" placeholder="Select Date of Birth (YYYY-MM-DD)" autocomplete="off">
                     </div>
                     <p class="helper-text">Your exact date determines your Life Path number.</p>
                 </div>
@@ -564,7 +576,7 @@ app.listen(PORT, () => {
     <!-- Floating AI Chatbot Container -->
     <div id="chatbot-container">
         <div id="chat-header" onclick="toggleChat()">
-            🤖 Destiny AI Chat 💬
+            <i class="fas fa-feather-alt"></i><span> Destiny Guide</span>
         </div>
         <div id="chat-window" class="closed">
             <div id="chat-messages">
@@ -627,6 +639,7 @@ app.listen(PORT, () => {
             dateFormat: "Y-m-d", 
             maxDate: "today",
             yearSelectorType: "dropdown",
+            allowInput: true, // Task 1: Allow manual typing of the date
         });
         
         // --- Utility Functions ---
@@ -637,32 +650,29 @@ app.listen(PORT, () => {
         function formatReportContent(markdownText, baseColor = '#222222') {
             if (!markdownText) return [{ text: 'Content data is missing.', color: '#888', margin: [0, 5, 0, 0] }];
 
-            // CRITICAL FIX: Clean up residual HTML list tags inserted by the AI
-            // 1. Replace <li> with a list marker (* ) and remove closing </li>
-            // Use \s* to handle potential whitespace inside tags, and /gi for case-insensitive global replacement.
-            let cleanedText = markdownText.replace(/<\s*li\s*>/gi, '* ').replace(/<\/\s*li\s*>/gi, '');
-            // 2. Remove <ul> and <ol> tags entirely, including attributes (like <ul style="...">)
+            // CRITICAL FIX: Robustly clean up residual HTML list tags inserted by the AI
+            let cleanedText = markdownText.replace(/<\s*li[^>]*>/gi, '* ').replace(/<\/\s*li\s*>/gi, '');
             cleanedText = cleanedText.replace(/<\s*ul[^>]*>/gi, '').replace(/<\/\s*ul\s*>/gi, '');
             cleanedText = cleanedText.replace(/<\s*ol[^>]*>/gi, '').replace(/<\/\s*ol\s*>/gi, '');
             
-            // Re-apply original text to start parsing
             const elements = [];
-            // Use cleanedText here
             const lines = cleanedText.split('\n'); 
-            let currentList = null;
-            let listType = null;
-            let listMargin = [0, 2, 0, 0];
             
-            // Function to process a single line for inline bolding
-            const processLine = (line) => {
+            // Process a single line for inline bolding
+            const processLine = (line, isListItem = false) => {
                 const textRuns = [];
                 // Split by bold markers (**)
                 const parts = line.split(/(\*\*.*?\*\*)/g).filter(p => p.length > 0); 
 
                 parts.forEach(part => {
                     if (part.startsWith('**') && part.endsWith('**')) {
-                        // Bold text for keywords
-                        textRuns.push({ text: part.substring(2, part.length - 2), bold: true, color: '#333333' });
+                        // Bold text emphasized with Primary Purple for lists/key points
+                        const boldColor = isListItem ? '#3A1C71' : '#333333';
+                        textRuns.push({ 
+                            text: part.substring(2, part.length - 2), 
+                            bold: true, 
+                            color: boldColor
+                        }); 
                     } else {
                         // Standard body text
                         textRuns.push({ text: part, color: baseColor });
@@ -670,38 +680,51 @@ app.listen(PORT, () => {
                 });
                 return textRuns;
             };
+            
+            let currentList = null;
+            let listType = null;
 
             for (let line of lines) {
                 line = line.trim();
                 if (!line) {
-                    currentList = null; // Break list context on empty line
+                    currentList = null; 
                     listType = null;
                     continue;
                 }
                 
-                // Handle Lists (* or - or 1.)
-                if (line.startsWith('* ') || line.startsWith('- ')) {
+                // Handle Bulleted Lists (* or -)
+                if (line.match(/^(\*|-)\s/)) {
                     if (!currentList || listType !== 'ul') {
-                        currentList = { ul: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        // Start new unordered list
+                        currentList = { ul: [], margin: [10, 5, 0, 5], lineHeight: 1.4 };
                         elements.push(currentList);
                         listType = 'ul';
                     }
-                    // Extract content after the list marker
-                    const content = line.startsWith('* ') ? line.substring(2).trim() : line.substring(2).trim();
-                    currentList.ul.push({ text: processLine(content), margin: listMargin });
-                } else if (line.match(/^\d+\. /)) {
+                    const content = line.substring(line.indexOf(' ') + 1).trim();
+                    currentList.ul.push({ 
+                        text: processLine(content, true), // Treat as list item (true)
+                        margin: [0, 2, 0, 2], // Tighten spacing
+                    });
+                } 
+                // Handle Ordered Lists (1.)
+                else if (line.match(/^\d+\. /)) {
                     if (!currentList || listType !== 'ol') {
-                        currentList = { ol: [], margin: [0, 5, 0, 5], lineHeight: 1.4 };
+                        currentList = { ol: [], margin: [10, 5, 0, 5], lineHeight: 1.4 };
                         elements.push(currentList);
                         listType = 'ol';
                     }
-                    currentList.ol.push({ text: processLine(line.substring(line.indexOf('.') + 1).trim()), margin: listMargin });
-                } else {
+                    const content = line.substring(line.indexOf('.') + 1).trim();
+                    currentList.ol.push({ 
+                        text: processLine(content, true), // Treat as list item (true)
+                        margin: [0, 2, 0, 2],
+                    });
+                } 
+                // Handle Headings (rare, but stop list continuity) or normal paragraphs
+                else {
                     currentList = null;
                     listType = null;
-                    
-                    // Plain paragraph (use the text array structure for formatting consistency)
-                    elements.push({ text: processLine(line), margin: [0, 5, 0, 0], lineHeight: 1.4 });
+                    // Apply body style with paragraph spacing [L, T, R, B]
+                    elements.push({ text: processLine(line), style: 'body' }); 
                 }
             }
             return elements;
@@ -717,25 +740,32 @@ app.listen(PORT, () => {
             // CRITICAL FIX: Use nullish coalescing (?? '') to prevent "undefined" injection
             markdown += `# ${structuredData.title ?? 'Untitled Destiny Profile'}\n\n`;
             
-            markdown += `## 1. Core Life Path Summary (Chaldean Numerology)\n`;
+            markdown += `## 1. Core Identity & Life Path Summary\n`;
             markdown += structuredData.lifePathSummary ?? 'Content not generated. Please try again.';
             
-            markdown += `\n## 2. Vedic Planetary Fusion (Graha Drishti)\n`;
+            markdown += `\n## 2. Psychological Profile & Emotional Patterns\n`;
+            markdown += structuredData.psychologicalProfile ?? 'Content not generated. Please try again.';
+
+            markdown += `\n## 3. Vedic Planetary Fusion (Graha Drishti)\n`;
             markdown += structuredData.vedicFusion ?? 'Content not generated. Please try again.';
 
-            markdown += `\n## 3. Destiny Number (Name Expression)\n`;
+            markdown += `\n## 4. Love, Relationships & Compatibility\n`;
+            markdown += structuredData.relationshipAnalysis ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 5. Career Path, Work Style & Financial Outlook\n`;
+            markdown += structuredData.careerFinancialOutlook ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 6. Spiritual Growth & Soul Mission\n`;
+            markdown += structuredData.spiritualPurpose ?? 'Content not generated. Please try again.';
+
+            markdown += `\n## 7. Destiny Number (Ultimate Name Expression)\n`;
             markdown += structuredData.destinyExplanation ?? 'Content not generated. Please try again.';
             
-            markdown += `\n## 4. Strengths, Challenges & Remedial Actions\n`;
-            
-            markdown += `\n### 💡 Key Strengths\n`;
-            markdown += structuredData.strengths ?? '* Strengths section failed to load.';
+            markdown += `\n## 8. Guidance, Remedies & Action Steps\n`;
+            markdown += structuredData.remediesGuidance ?? 'Content not generated. Please try again.';
 
-            markdown += `\n### 🚧 Potential Challenges\n`;
-            markdown += structuredData.challenges ?? '* Challenges section failed to load.';
-            
-            markdown += `\n### 🕉️ Remedial Suggestions (Upayes)\n`;
-            markdown += structuredData.remedies ?? '* Remedial suggestions failed to load.';
+            markdown += `\n## 9. Key Takeaways & Snapshot\n`;
+            markdown += structuredData.keyTakeaways ?? 'Content not generated. Please try again.';
             
             // Render the final Markdown string to HTML
             return marked.parse(markdown);
@@ -885,7 +915,7 @@ app.listen(PORT, () => {
              renderVault();
              animateCosmos(); // Start the animation
              if (chatHistory.length === 0) {
-                 chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
+                 chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny Guide, powered by Small AI v2. I specialize in numerology and ancient wisdom. How may I assist you on your path today?" });
              }
         });
         
@@ -1040,49 +1070,68 @@ app.listen(PORT, () => {
             const meta = reportData.metadata;
             const data = reportData.result;
             
+            // CRITICAL FIX: Ensure meta.birthDay exists before proceeding
+            if (!meta.birthDay || !meta.birthPlanet) {
+                alert("Error: Missing planetary data in the stored profile. Please regenerate the profile.");
+                console.error("Missing critical metadata fields: birthDay or birthPlanet.");
+                return;
+            }
+            
             // --- PROFESSIONAL PDF STYLES ---
             const styles = {
                 header: { 
                     fontSize: 24, 
                     bold: true, 
-                    color: '#2c3e50', // Dark Blue/Black for print
+                    color: '#2c3e50', 
                     alignment: 'center', 
                     margin: [0, 0, 0, 10] 
                 },
                 title: { 
-                    fontSize: 32, 
+                    fontSize: 36, 
                     bold: true, 
-                    color: '#8e44ad', // Deep Purple
+                    color: '#3A1C71', // Primary Purple
                     alignment: 'center', 
-                    margin: [0, 20, 0, 30] 
+                    margin: [0, 25, 0, 35] 
                 },
+                // Major Section Header (Clean, filled background block)
                 sectionHeader: { 
-                    fontSize: 18, 
+                    fontSize: 20, 
                     bold: true, 
-                    color: '#34495e', // Dark Gray-Blue
-                    margin: [0, 30, 0, 10], 
-                    decoration: 'underline', 
-                    decorationColor: '#bdc3c7',
-                    pageBreak: 'before' // Explicit page break for major sections
+                    color: '#11152a', 
+                    fillColor: '#EBEBEB', // Light gray background fill
+                    margin: [0, 40, 0, 15], 
+                    pageBreak: 'before',
+                    alignment: 'left',
+                    padding: [10, 8, 10, 8] 
                 },
+                // Sub Header (Used for Strengths/Challenges/Remedies intro)
                 subHeader: { 
-                    fontSize: 14, 
+                    fontSize: 16, 
                     bold: true, 
-                    color: '#34495e', 
-                    margin: [0, 15, 0, 5] 
+                    color: '#6EE7E7', // AI Accent Cyan/Teal
+                    margin: [0, 20, 0, 10], 
                 },
+                // General Body Text (Paragraphs)
                 body: { 
                     fontSize: 11, 
-                    color: '#222222', // Near-black for print readability
-                    lineHeight: 1.5, 
-                    margin: [0, 2, 0, 0] 
-                },
-                tableHeader: {
-                    fontSize: 12, 
-                    bold: true, 
                     color: '#222222', 
-                    fillColor: '#ecf0f1', // Light Gray background for header row
+                    lineHeight: 1.5, 
+                    margin: [0, 0, 0, 8] // Explicit paragraph bottom margin
+                },
+                // Table Header
+                tableHeader: {
+                    fontSize: 13, 
+                    bold: true, 
+                    color: '#1A1F3C', 
+                    fillColor: '#E0E0E0', 
                     alignment: 'center'
+                },
+                // Small text for career/archetype below the table
+                detail: {
+                    fontSize: 10,
+                    color: '#34495e',
+                    alignment: 'left',
+                    margin: [0, 5, 0, 2]
                 },
                 meta: { 
                     fontSize: 10, 
@@ -1095,15 +1144,13 @@ app.listen(PORT, () => {
             // --- PROFESSIONAL PDF CONTENT STRUCTURE ---
             const docDefinition = {
                 pageSize: 'A4',
-                // Explicitly set page margins (A4 standard margin)
                 pageMargins: [60, 60, 60, 60], 
                 
-                // White background is standard for printing (Dark background removed)
                 background: () => ({
                     canvas: [{
                         type: 'rect',
                         x: 0, y: 0, w: 595, h: 842,
-                        color: '#FFFFFF' // Ensure white background
+                        color: '#FFFFFF' 
                     }]
                 }),
                 
@@ -1118,12 +1165,15 @@ app.listen(PORT, () => {
                     { text: 'The Destiny Matrix', style: 'header' },
                     { text: data.title, style: 'title' },
 
-                    // User Details Table (GOAL: Fix Tables)
+                    // User Details Table Header
                     {
                         text: 'Core Numerological Coordinates',
-                        style: 'subHeader',
-                        margin: [0, 5, 0, 5]
+                        style: 'subHeader', 
+                        color: '#333333', 
+                        margin: [0, 0, 0, 10]
                     },
+                    
+                    // User Details Table (Improved Layout)
                     {
                         table: {
                             headerRows: 1,
@@ -1137,55 +1187,76 @@ app.listen(PORT, () => {
                                     { text: 'Destiny No.', style: 'tableHeader' }
                                 ],
                                 [
-                                    { text: meta.name, style: 'body', alignment: 'center' }, 
-                                    { text: meta.dob, style: 'body', alignment: 'center' }, 
-                                    { text: `${meta.lifePathNo} (${meta.missionPlanet})`, style: 'body', alignment: 'center' }, 
-                                    { text: `${meta.birthNo} (${meta.birthPlanet})`, style: 'body', alignment: 'center' }, 
-                                    { text: `${meta.destinyNo} (${meta.destinyPlanet})`, style: 'body', alignment: 'center' }
+                                    { text: meta.name, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: meta.dob, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: `${meta.lifePathNo}`, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: `${meta.birthNo}`, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }, 
+                                    { text: `${meta.destinyNo}`, style: 'body', alignment: 'center', margin: [0, 4, 0, 4] }
                                 ]
                             ]
                         },
                         layout: {
-                            // Simple, print-safe horizontal lines
-                            hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
-                            vLineWidth: () => 0,
-                            hLineColor: () => '#95a5a6',
-                            fillColor: (i) => (i === 0) ? '#ecf0f1' : null,
-                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 8, paddingBottom: () => 8
+                            // These two MUST include the 'node' argument if they reference node.table.body.length
+                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
+                            vLineWidth: (i, node) => 0.5, 
+                            hLineColor: (i, node) => (i === 0 || i === node.table.body.length) ? '#3A1C71' : '#bdc3c7', 
+                            vLineColor: (i, node) => '#bdc3c7',
+                            fillColor: (i, node) => (i === 0) ? '#E0E0E0' : null,
+                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 6, paddingBottom: () => 6
                         },
-                        margin: [0, 10, 0, 30] // Increased spacing after the table
+                        margin: [0, 10, 0, 15] 
                     },
 
-                    // Section 1: Core Life Path (GOAL: Content Flow)
-                    { text: '1. Core Life Path Summary (Chaldean Numerology)', style: 'sectionHeader', pageBreak: 'before' }, 
-                    ...formatReportContent(data.lifePathSummary),
+                    // Detail Boxes below the table
+                    { text: `Combined Archetype: ${meta.archetype}`, style: 'detail' },
+                    { text: `Vocation Alignment: ${meta.career}`, style: 'detail', margin: [0, 0, 0, 25] },
 
-                    // Section 2: Vedic Fusion
-                    { text: `2. Vedic Planetary Fusion (Graha Drishti)`, style: 'sectionHeader' },
-                    ...formatReportContent(data.vedicFusion),
+
+                    // Section 1: Core Identity & Life Path Summary
+                    { text: '1. Core Identity & Life Path Summary', style: 'sectionHeader', pageBreak: 'before' }, 
+                    ...formatReportContent(data.lifePathSummary, '#333333'), 
+
+                    // Section 2: Psychological Profile
+                    { text: `2. Psychological Profile & Emotional Patterns`, style: 'sectionHeader' },
+                    ...formatReportContent(data.psychologicalProfile, '#333333'),
+
+                    // Section 3: Vedic Fusion
+                    { text: `3. Vedic Planetary Fusion (Graha Drishti)`, style: 'sectionHeader' },
+                    ...formatReportContent(data.vedicFusion, '#333333'),
                     
-                    // Section 3: Destiny Number
-                    { text: `3. Destiny Number & Ultimate Expression`, style: 'sectionHeader' },
-                    ...formatReportContent(data.destinyExplanation),
+                    // Section 4: Relationships
+                    { text: '4. Love, Relationships & Compatibility', style: 'sectionHeader' },
+                    ...formatReportContent(data.relationshipAnalysis, '#333333'),
 
-                    // Section 4: Key Traits
-                    { text: '4. Key Strengths & Challenges', style: 'sectionHeader' },
+                    // Section 5: Career & Money
+                    { text: '5. Career Path, Work Style & Financial Outlook', style: 'sectionHeader' },
+                    ...formatReportContent(data.careerFinancialOutlook, '#333333'),
+
+                    // Section 6: Spiritual Growth
+                    { text: '6. Spiritual Growth & Soul Mission', style: 'sectionHeader' },
+                    ...formatReportContent(data.spiritualPurpose, '#333333'),
                     
-                    { text: 'Key Strengths:', style: 'subHeader' },
-                    ...formatReportContent(data.strengths),
+                    // Section 7: Destiny Number
+                    { text: `7. Destiny Number (Ultimate Name Expression)`, style: 'sectionHeader' },
+                    ...formatReportContent(data.destinyExplanation, '#333333'),
 
-                    { text: 'Potential Challenges:', style: 'subHeader' },
-                    ...formatReportContent(data.challenges),
+                    // Section 8: Guidance & Remedies
+                    { text: '8. Guidance, Remedies & Action Steps', style: 'sectionHeader' },
+                    
+                    // FIXED LINE: Use meta.birthDay instead of the global PLANETARY_MAPPING
+                    { text: `Planetary Day of Strength: ${meta.birthPlanet} (on ${meta.birthDay})`, style: 'detail', bold: true, color: '#3A1C71', margin: [0, 0, 0, 10] },
+                    
+                    ...formatReportContent(data.remediesGuidance, '#333333'),
 
-                    // Section 5: Remedies
-                    { text: '5. Remedial Suggestions (Upayes)', style: 'sectionHeader' },
-                    ...formatReportContent(data.remedies),
+                    // Section 9: Key Takeaways
+                    { text: '9. Summary & Key Takeaways', style: 'sectionHeader' },
+                    ...formatReportContent(data.keyTakeaways, '#333333'),
                     
                     // Footer Info
                     { 
                         text: `\nReport Generated: ${new Date().toLocaleDateString()}`, 
                         style: 'meta',
-                        margin: [0, 30, 0, 0] // Ensure margin for clean look
+                        margin: [0, 30, 0, 0] 
                     }
                 ],
                 styles: styles
@@ -1255,10 +1326,13 @@ app.listen(PORT, () => {
             }
         }
 
-        // --- Chatbot Logic (Unchanged) ---
+        // --- Chatbot Logic (Updated for FAB state) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
+            const chatContainer = document.getElementById('chatbot-container');
+            
             chatWindow.classList.toggle('closed');
+            chatContainer.classList.toggle('chat-open'); // New class to handle FAB transition
         }
         
         function addMessageToChat(text, sender) {
@@ -1596,11 +1670,23 @@ button:not(.export-button):hover {
     cursor: pointer;
     box-shadow: var(--shadow-deep);
     z-index: 1010;
-    transition: background-color 0.2s;
+    transition: all 0.2s; /* Transition all properties */
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 #vault-trigger:hover {
     background-color: #553399;
     animation-play-state: paused; 
+}
+
+/* Default state: show desktop icon and text, hide mobile icon */
+#vault-trigger .mobile-icon {
+    display: none;
+}
+#vault-trigger .desktop-icon,
+#vault-trigger .desktop-text {
+    display: inline;
 }
 
 
@@ -1821,9 +1907,24 @@ button:not(.export-button):hover {
     #vault-trigger {
         top: 10px;
         right: 10px;
-        padding: 8px 15px;
-        font-size: 0.9em;
+        padding: 12px; /* Square padding for circular look, if border-radius changes */
+        font-size: 1.2em; /* Increase icon size */
+        border-radius: 50%; /* Make it circular */
+        width: 45px;
+        height: 45px;
+        align-items: center;
+        justify-content: center;
     }
+    
+    /* Mobile Vault Icon/Text Swap */
+    #vault-trigger .mobile-icon {
+        display: inline; /* Show the hamburger */
+    }
+    #vault-trigger .desktop-icon,
+    #vault-trigger .desktop-text {
+        display: none; /* Hide desktop icon and text */
+    }
+    
     /* Move chat to the left to avoid clash with vault on mobile */
     #chatbot-container {
         right: auto;
@@ -1831,43 +1932,92 @@ button:not(.export-button):hover {
     }
 }
 
-/* --- Floating AI Chatbot Styles (STEP 3.1: Resizing) --- */
+/* --- Floating AI Chatbot Styles (Minimal, Circular FAB) --- */
 #chatbot-container {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 320px; /* Fixed width */
+    bottom: 30px; /* Lift slightly for better visibility */
+    right: 30px;
+    width: 60px; /* FAB dimensions */
+    height: 60px;
     max-height: 80vh;
     box-shadow: var(--shadow-deep);
-    border-radius: 12px;
+    border-radius: 50%; /* Start circular */
     overflow: hidden;
     z-index: 990;
     font-family: 'Poppins', sans-serif;
-    transition: all 0.3s ease-in-out;
+    border: none; /* No visible border initially */
+    transition: all 0.3s ease-in-out, width 0.3s ease-in-out, height 0.3s ease-in-out, border-radius 0.3s ease-in-out;
+    background-color: var(--secondary-color); /* Use secondary color for FAB */
+}
+
+/* State when the chat window is OPEN */
+#chatbot-container.chat-open {
+    width: 340px; /* Expand width */
+    height: 470px; /* Expand height (Header + Window) */
+    border-radius: 12px; /* Restore standard rounded corners */
+    background-color: #1A1F3C; /* Set background for window */
+    border: 1px solid var(--border-color); 
 }
 
 #chat-header {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 15px 20px;
+    /* Style for the FAB when closed */
+    width: 60px;
+    height: 60px;
+    background-color: var(--secondary-color); /* Main FAB color */
+    color: var(--background-dark); 
+    padding: 0;
     cursor: pointer;
-    font-weight: 600;
-    font-size: 1.1em;
+    font-weight: 700;
+    font-size: 1.5em; /* Icon size */
     display: flex;
     align-items: center;
     justify-content: center;
-    border-bottom: 2px solid var(--secondary-color);
-    transition: background-color 0.2s;
+    border-bottom: none;
+    transition: all 0.3s;
 }
 
-#chat-header:hover {
-    background-color: #553399;
+/* Style for the header when the window is OPEN */
+#chatbot-container.chat-open #chat-header {
+    width: 100%;
+    height: auto;
+    background-color: var(--card-background-semi); 
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--secondary-color); 
+    padding: 12px 20px; 
+    font-weight: 500;
+    font-size: 1em;
+    border-bottom: 1px solid rgba(110, 231, 231, 0.2); 
+    /* Ensure icon and text are aligned when open */
+    justify-content: flex-start;
+    gap: 8px; 
 }
+
+/* Hide the header text when closed */
+#chat-header .fas { 
+    line-height: 1; /* Fix vertical alignment */
+}
+#chat-header span { /* Target span containing ' Destiny Guide' */
+    transition: opacity 0.1s;
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+}
+#chatbot-container.chat-open #chat-header span {
+    opacity: 1;
+    width: auto;
+}
+
+/* Revert size on hover */
+#chat-header:hover:not(#chatbot-container.chat-open #chat-header) {
+    background-color: #92ffff; /* Lighter shade on hover */
+}
+
 
 #chat-window {
     display: flex;
     flex-direction: column;
-    height: 420px; /* STEP 3.1: Fixed height */
+    height: 420px; 
     background-color: #1A1F3C; 
     transition: all 0.3s ease-in-out;
 }
@@ -1979,16 +2129,102 @@ button:not(.export-button):hover {
     width: 70px; 
 }
 
-/* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
+/* --- RESPONSIVENESS (Task 5) --- */
+
+@media (max-width: 900px) {
+    /* Adjust main padding for slightly smaller screens */
+    main {
+        padding: 0 15px;
+        margin: 20px auto;
+    }
+    
+    .card {
+        padding: 20px;
+    }
+}
+
 @media (max-width: 768px) {
+    header {
+        padding: 30px 15px;
+    }
+    
+    header h1 {
+        font-size: 2.2em;
+    }
+
+    /* Stack input groups */
+    .input-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    /* Full width buttons */
+    button {
+        width: 100%;
+        margin-top: 10px;
+        font-size: 1em;
+    }
+    
+    /* Export buttons should also stack or be full width */
+    .export-controls {
+        text-align: center;
+    }
+    .export-button {
+        display: block;
+        width: 100%;
+        margin: 5px 0 0 0;
+    }
+
+    /* Vault adjustments */
+    #destiny-vault {
+        width: 100%;
+        right: -100vw;
+    }
+    #destiny-vault.open {
+        right: 0;
+    }
+    #vault-trigger {
+        top: 10px;
+        right: 10px;
+        padding: 8px 15px;
+        font-size: 0.9em;
+    }
+    
+    /* Chat adjustments */
     #chatbot-container {
         width: 90vw;
         left: 5vw;
         right: auto;
         bottom: 10px;
     }
+    
+    #chat-window {
+        height: 350px; /* Shorter height on mobile */
+    }
 }
 
-
+/* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
+@media (max-width: 768px) {
+    /* Base FAB position on mobile */
+    #chatbot-container {
+        width: 55px;
+        height: 55px;
+        left: 15px; /* Use left to avoid vault overlap */
+        right: auto;
+        bottom: 15px;
+    }
+    
+    /* Expanded container on mobile */
+    #chatbot-container.chat-open {
+        width: 90vw;
+        height: 380px; /* Reduced height */
+        left: 5vw;
+    }
+    
+    #chat-header {
+        width: 55px;
+        height: 55px;
+    }
+}
 
 --- END FILE: public\style.css ---

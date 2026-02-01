@@ -270,11 +270,23 @@ button:not(.export-button):hover {
     cursor: pointer;
     box-shadow: var(--shadow-deep);
     z-index: 1010;
-    transition: background-color 0.2s;
+    transition: all 0.2s; /* Transition all properties */
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 #vault-trigger:hover {
     background-color: #553399;
     animation-play-state: paused; 
+}
+
+/* Default state: show desktop icon and text, hide mobile icon */
+#vault-trigger .mobile-icon {
+    display: none;
+}
+#vault-trigger .desktop-icon,
+#vault-trigger .desktop-text {
+    display: inline;
 }
 
 
@@ -390,7 +402,7 @@ button:not(.export-button):hover {
 .vault-header {
     padding: 20px;
     background: var(--primary-color);
-    color: white;
+    color: var(--text-dark);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -398,14 +410,24 @@ button:not(.export-button):hover {
 .vault-header h3 {
     margin: 0;
     font-family: 'Cormorant Garamond', serif;
+    font-size: 1.6em; /* Larger header text */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.vault-header h3 .fas {
+    color: var(--secondary-color);
+    font-size: 1.1em;
 }
 #vault-close {
     background: none;
     border: none;
-    color: white;
-    font-size: 1.5em;
+    color: var(--text-light); /* Use light text color */
+    font-size: 1.8em; /* Larger, more prominent icon */
     cursor: pointer;
-    padding: 5px;
+    padding: 0; /* Remove default padding to let flexbox handle alignment */
+    line-height: 1; /* Ensure icon centers vertically */
+    transition: color 0.2s;
 }
 #vault-close:hover {
     color: var(--accent-gold);
@@ -430,49 +452,60 @@ button:not(.export-button):hover {
 }
 
 .vault-profile-card {
-    background: rgba(255, 255, 255, 0.08);
-    padding: 15px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    border-left: 4px solid var(--secondary-color);
+    background: #1A1F3C; /* Darker background */
+    padding: 18px; /* Increased padding */
+    margin-bottom: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(65, 55, 100, 0.6); /* Subtle border */
+    border-left: 5px solid var(--secondary-color); /* Stronger left accent bar */
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 .vault-profile-card h4 {
     margin: 0;
     color: var(--accent-gold);
-    font-size: 1.1em;
+    font-size: 1.2em; /* Slightly larger title */
+    font-weight: 600;
 }
 .vault-profile-card p {
     margin: 0;
     font-size: 0.85em;
-    color: #aaa;
+    color: #ddd;
+    line-height: 1.4;
 }
 .vault-profile-card .small-meta {
     font-size: 0.75em;
-    color: #666;
+    color: #999;
 }
 .vault-actions {
     display: flex;
-    gap: 5px;
-    margin-top: 10px;
+    gap: 8px; /* Increased gap */
+    margin-top: 15px;
 }
 .vault-actions button {
     flex-grow: 1;
-    padding: 8px 10px;
-    font-size: 0.85em;
+    padding: 10px 10px; /* Taller buttons */
+    font-size: 0.9em;
     margin-top: 0;
+    font-weight: 500;
+    border-radius: 8px; /* Slightly softer corners */
 }
+/* Styling the Load button */
 .vault-actions .load-btn {
     background-color: var(--secondary-color);
     color: var(--background-dark);
 }
+.vault-actions .load-btn:hover {
+    background-color: #92ffff;
+}
+/* Styling the Delete button */
 .vault-actions .delete-btn {
-    background-color: #8c0000; 
+    background-color: #b30000; /* Darker Red */
 }
 .vault-actions .delete-btn:hover {
-    background-color: #b30000;
+    background-color: #ff3333;
 }
 
 #vault-footer {
@@ -480,7 +513,17 @@ button:not(.export-button):hover {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     text-align: center;
     font-size: 0.8em;
-    color: #666;
+    color: #999; /* Lighter footer text */
+}
+
+/* Styling the Clear All button */
+#vault-footer .delete-btn {
+    background-color: var(--primary-color); /* Use primary purple for the main action */
+    color: var(--text-dark);
+}
+#vault-footer .delete-btn:hover {
+    background-color: #553399;
+    box-shadow: 0 0 10px rgba(58, 28, 113, 0.8);
 }
 
 /* Mobile adjustments for vault */
@@ -495,9 +538,24 @@ button:not(.export-button):hover {
     #vault-trigger {
         top: 10px;
         right: 10px;
-        padding: 8px 15px;
-        font-size: 0.9em;
+        padding: 12px; /* Square padding for circular look, if border-radius changes */
+        font-size: 1.2em; /* Increase icon size */
+        border-radius: 50%; /* Make it circular */
+        width: 45px;
+        height: 45px;
+        align-items: center;
+        justify-content: center;
     }
+    
+    /* Mobile Vault Icon/Text Swap */
+    #vault-trigger .mobile-icon {
+        display: inline; /* Show the hamburger */
+    }
+    #vault-trigger .desktop-icon,
+    #vault-trigger .desktop-text {
+        display: none; /* Hide desktop icon and text */
+    }
+    
     /* Move chat to the left to avoid clash with vault on mobile */
     #chatbot-container {
         right: auto;
@@ -505,43 +563,92 @@ button:not(.export-button):hover {
     }
 }
 
-/* --- Floating AI Chatbot Styles (STEP 3.1: Resizing) --- */
+/* --- Floating AI Chatbot Styles (Minimal, Circular FAB) --- */
 #chatbot-container {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 320px; /* Fixed width */
+    bottom: 30px; /* Lift slightly for better visibility */
+    right: 30px;
+    width: 60px; /* FAB dimensions */
+    height: 60px;
     max-height: 80vh;
     box-shadow: var(--shadow-deep);
-    border-radius: 12px;
+    border-radius: 50%; /* Start circular */
     overflow: hidden;
     z-index: 990;
     font-family: 'Poppins', sans-serif;
-    transition: all 0.3s ease-in-out;
+    border: none; /* No visible border initially */
+    transition: all 0.3s ease-in-out, width 0.3s ease-in-out, height 0.3s ease-in-out, border-radius 0.3s ease-in-out;
+    background-color: var(--secondary-color); /* Use secondary color for FAB */
+}
+
+/* State when the chat window is OPEN */
+#chatbot-container.chat-open {
+    width: 340px; /* Expand width */
+    height: 470px; /* Expand height (Header + Window) */
+    border-radius: 12px; /* Restore standard rounded corners */
+    background-color: #1A1F3C; /* Set background for window */
+    border: 1px solid var(--border-color); 
 }
 
 #chat-header {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 15px 20px;
+    /* Style for the FAB when closed */
+    width: 60px;
+    height: 60px;
+    background-color: var(--secondary-color); /* Main FAB color */
+    color: var(--background-dark); 
+    padding: 0;
     cursor: pointer;
-    font-weight: 600;
-    font-size: 1.1em;
+    font-weight: 700;
+    font-size: 1.5em; /* Icon size */
     display: flex;
     align-items: center;
     justify-content: center;
-    border-bottom: 2px solid var(--secondary-color);
-    transition: background-color 0.2s;
+    border-bottom: none;
+    transition: all 0.3s;
 }
 
-#chat-header:hover {
-    background-color: #553399;
+/* Style for the header when the window is OPEN */
+#chatbot-container.chat-open #chat-header {
+    width: 100%;
+    height: auto;
+    background-color: var(--card-background-semi); 
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--secondary-color); 
+    padding: 12px 20px; 
+    font-weight: 500;
+    font-size: 1em;
+    border-bottom: 1px solid rgba(110, 231, 231, 0.2); 
+    /* Ensure icon and text are aligned when open */
+    justify-content: flex-start;
+    gap: 8px; 
 }
+
+/* Hide the header text when closed */
+#chat-header .fas { 
+    line-height: 1; /* Fix vertical alignment */
+}
+#chat-header span { /* Target span containing ' Destiny Guide' */
+    transition: opacity 0.1s;
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+}
+#chatbot-container.chat-open #chat-header span {
+    opacity: 1;
+    width: auto;
+}
+
+/* Revert size on hover */
+#chat-header:hover:not(#chatbot-container.chat-open #chat-header) {
+    background-color: #92ffff; /* Lighter shade on hover */
+}
+
 
 #chat-window {
     display: flex;
     flex-direction: column;
-    height: 420px; /* STEP 3.1: Fixed height */
+    height: 420px; 
     background-color: #1A1F3C; 
     transition: all 0.3s ease-in-out;
 }
@@ -653,13 +760,100 @@ button:not(.export-button):hover {
     width: 70px; 
 }
 
-/* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
+/* --- RESPONSIVENESS (Task 5) --- */
+
+@media (max-width: 900px) {
+    /* Adjust main padding for slightly smaller screens */
+    main {
+        padding: 0 15px;
+        margin: 20px auto;
+    }
+    
+    .card {
+        padding: 20px;
+    }
+}
+
 @media (max-width: 768px) {
+    header {
+        padding: 30px 15px;
+    }
+    
+    header h1 {
+        font-size: 2.2em;
+    }
+
+    /* Stack input groups */
+    .input-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    /* Full width buttons */
+    button {
+        width: 100%;
+        margin-top: 10px;
+        font-size: 1em;
+    }
+    
+    /* Export buttons should also stack or be full width */
+    .export-controls {
+        text-align: center;
+    }
+    .export-button {
+        display: block;
+        width: 100%;
+        margin: 5px 0 0 0;
+    }
+
+    /* Vault adjustments */
+    #destiny-vault {
+        width: 100%;
+        right: -100vw;
+    }
+    #destiny-vault.open {
+        right: 0;
+    }
+    #vault-trigger {
+        top: 10px;
+        right: 10px;
+        padding: 8px 15px;
+        font-size: 0.9em;
+    }
+    
+    /* Chat adjustments */
     #chatbot-container {
         width: 90vw;
         left: 5vw;
         right: auto;
         bottom: 10px;
     }
+    
+    #chat-window {
+        height: 350px; /* Shorter height on mobile */
+    }
 }
 
+/* Mobile adjustments for chat (Moved to left to avoid vault overlap) */
+@media (max-width: 768px) {
+    /* Base FAB position on mobile */
+    #chatbot-container {
+        width: 55px;
+        height: 55px;
+        left: 15px; /* Use left to avoid vault overlap */
+        right: auto;
+        bottom: 15px;
+    }
+    
+    /* Expanded container on mobile */
+    #chatbot-container.chat-open {
+        width: 90vw;
+        height: 380px; /* Reduced height */
+        left: 5vw;
+    }
+    
+    #chat-header {
+        width: 55px;
+        height: 55px;
+    }
+}

@@ -32,7 +32,11 @@
     
     <!-- 🗂️ Destiny Vault Trigger -->
     <button id="vault-trigger" onclick="toggleVault()">
-        <i class="fas fa-box-open"></i> My Destiny Vault
+        <!-- Standard Icon -->
+        <i class="fas fa-box-open desktop-icon"></i> 
+        <!-- Mobile Icon (Hamburger) -->
+        <i class="fas fa-bars mobile-icon"></i>
+        <span class="desktop-text"> My Destiny Vault</span>
     </button>
     
     <header>
@@ -61,7 +65,7 @@
                     <div class="input-field-wrapper">
                         <i class="input-icon fas fa-calendar-alt"></i>
                         <!-- STEP 1.2: Updated DOB input for Flatpickr -->
-                        <input id="dob" placeholder="Select Date of Birth" autocomplete="off">
+                        <input id="dob" placeholder="Select Date of Birth (YYYY-MM-DD)" autocomplete="off">
                     </div>
                     <p class="helper-text">Your exact date determines your Life Path number.</p>
                 </div>
@@ -117,7 +121,10 @@
     <!-- 🗂️ Destiny Vault Side Panel -->
     <div id="destiny-vault" class="closed">
         <div class="vault-header">
-            <h3><i class="fas fa-scroll"></i> My Destiny Vault</h3>
+            <h3>
+                <i class="fas fa-scroll"></i> 
+                <span>My Destiny Vault</span>
+            </h3>
             <button id="vault-close" onclick="toggleVault()"><i class="fas fa-times"></i></button>
         </div>
         <div id="vault-list">
@@ -133,7 +140,7 @@
     <!-- Floating AI Chatbot Container -->
     <div id="chatbot-container">
         <div id="chat-header" onclick="toggleChat()">
-            🤖 Destiny AI Chat 💬
+            <i class="fas fa-feather-alt"></i><span> Destiny Guide</span>
         </div>
         <div id="chat-window" class="closed">
             <div id="chat-messages">
@@ -196,6 +203,7 @@
             dateFormat: "Y-m-d", 
             maxDate: "today",
             yearSelectorType: "dropdown",
+            allowInput: true, // Task 1: Allow manual typing of the date
         });
         
         // --- Utility Functions ---
@@ -296,25 +304,32 @@
             // CRITICAL FIX: Use nullish coalescing (?? '') to prevent "undefined" injection
             markdown += `# ${structuredData.title ?? 'Untitled Destiny Profile'}\n\n`;
             
-            markdown += `## 1. Core Life Path Summary (Chaldean Numerology)\n`;
+            markdown += `## 1. Core Identity & Life Path Summary\n`;
             markdown += structuredData.lifePathSummary ?? 'Content not generated. Please try again.';
             
-            markdown += `\n## 2. Vedic Planetary Fusion (Graha Drishti)\n`;
+            markdown += `\n## 2. Psychological Profile & Emotional Patterns\n`;
+            markdown += structuredData.psychologicalProfile ?? 'Content not generated. Please try again.';
+
+            markdown += `\n## 3. Vedic Planetary Fusion (Graha Drishti)\n`;
             markdown += structuredData.vedicFusion ?? 'Content not generated. Please try again.';
 
-            markdown += `\n## 3. Destiny Number (Name Expression)\n`;
+            markdown += `\n## 4. Love, Relationships & Compatibility\n`;
+            markdown += structuredData.relationshipAnalysis ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 5. Career Path, Work Style & Financial Outlook\n`;
+            markdown += structuredData.careerFinancialOutlook ?? 'Content not generated. Please try again.';
+            
+            markdown += `\n## 6. Spiritual Growth & Soul Mission\n`;
+            markdown += structuredData.spiritualPurpose ?? 'Content not generated. Please try again.';
+
+            markdown += `\n## 7. Destiny Number (Ultimate Name Expression)\n`;
             markdown += structuredData.destinyExplanation ?? 'Content not generated. Please try again.';
             
-            markdown += `\n## 4. Strengths, Challenges & Remedial Actions\n`;
-            
-            markdown += `\n### 💡 Key Strengths\n`;
-            markdown += structuredData.strengths ?? '* Strengths section failed to load.';
+            markdown += `\n## 8. Guidance, Remedies & Action Steps\n`;
+            markdown += structuredData.remediesGuidance ?? 'Content not generated. Please try again.';
 
-            markdown += `\n### 🚧 Potential Challenges\n`;
-            markdown += structuredData.challenges ?? '* Challenges section failed to load.';
-            
-            markdown += `\n### 🕉️ Remedial Suggestions (Upayes)\n`;
-            markdown += structuredData.remedies ?? '* Remedial suggestions failed to load.';
+            markdown += `\n## 9. Key Takeaways & Snapshot\n`;
+            markdown += structuredData.keyTakeaways ?? 'Content not generated. Please try again.';
             
             // Render the final Markdown string to HTML
             return marked.parse(markdown);
@@ -464,7 +479,7 @@
              renderVault();
              animateCosmos(); // Start the animation
              if (chatHistory.length === 0) {
-                 chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny AI, powered by Small AI v2. Ask me about numerology, spiritual topics, or any general inquiry." });
+                 chatHistory.push({ sender: 'model', text: "Welcome! I am the Destiny Guide, powered by Small AI v2. I specialize in numerology and ancient wisdom. How may I assist you on your path today?" });
              }
         });
         
@@ -761,34 +776,45 @@
                     { text: `Vocation Alignment: ${meta.career}`, style: 'detail', margin: [0, 0, 0, 25] },
 
 
-                    // Section 1: Core Life Path 
-                    { text: '1. Core Life Path Summary (Chaldean Numerology)', style: 'sectionHeader', pageBreak: 'before' }, 
+                    // Section 1: Core Identity & Life Path Summary
+                    { text: '1. Core Identity & Life Path Summary', style: 'sectionHeader', pageBreak: 'before' }, 
                     ...formatReportContent(data.lifePathSummary, '#333333'), 
 
-                    // Section 2: Vedic Fusion
-                    { text: `2. Vedic Planetary Fusion (Graha Drishti)`, style: 'sectionHeader' },
+                    // Section 2: Psychological Profile
+                    { text: `2. Psychological Profile & Emotional Patterns`, style: 'sectionHeader' },
+                    ...formatReportContent(data.psychologicalProfile, '#333333'),
+
+                    // Section 3: Vedic Fusion
+                    { text: `3. Vedic Planetary Fusion (Graha Drishti)`, style: 'sectionHeader' },
                     ...formatReportContent(data.vedicFusion, '#333333'),
                     
-                    // Section 3: Destiny Number
-                    { text: `3. Destiny Number & Ultimate Expression`, style: 'sectionHeader' },
+                    // Section 4: Relationships
+                    { text: '4. Love, Relationships & Compatibility', style: 'sectionHeader' },
+                    ...formatReportContent(data.relationshipAnalysis, '#333333'),
+
+                    // Section 5: Career & Money
+                    { text: '5. Career Path, Work Style & Financial Outlook', style: 'sectionHeader' },
+                    ...formatReportContent(data.careerFinancialOutlook, '#333333'),
+
+                    // Section 6: Spiritual Growth
+                    { text: '6. Spiritual Growth & Soul Mission', style: 'sectionHeader' },
+                    ...formatReportContent(data.spiritualPurpose, '#333333'),
+                    
+                    // Section 7: Destiny Number
+                    { text: `7. Destiny Number (Ultimate Name Expression)`, style: 'sectionHeader' },
                     ...formatReportContent(data.destinyExplanation, '#333333'),
 
-                    // Section 4: Key Traits
-                    { text: '4. Key Strengths & Challenges', style: 'sectionHeader' },
-                    
-                    { text: '💡 Key Strengths', style: 'subHeader' }, 
-                    ...formatReportContent(data.strengths, '#333333'), 
-
-                    { text: '🚧 Potential Challenges', style: 'subHeader' }, 
-                    ...formatReportContent(data.challenges, '#333333'),
-
-                    // Section 5: Remedies
-                    { text: '5. Remedial Suggestions (Upayes)', style: 'sectionHeader' },
+                    // Section 8: Guidance & Remedies
+                    { text: '8. Guidance, Remedies & Action Steps', style: 'sectionHeader' },
                     
                     // FIXED LINE: Use meta.birthDay instead of the global PLANETARY_MAPPING
-                    { text: `Day of Strength: ${meta.birthPlanet} (on ${meta.birthDay})`, style: 'detail', bold: true, color: '#3A1C71', margin: [0, 0, 0, 10] },
+                    { text: `Planetary Day of Strength: ${meta.birthPlanet} (on ${meta.birthDay})`, style: 'detail', bold: true, color: '#3A1C71', margin: [0, 0, 0, 10] },
                     
-                    ...formatReportContent(data.remedies, '#333333'),
+                    ...formatReportContent(data.remediesGuidance, '#333333'),
+
+                    // Section 9: Key Takeaways
+                    { text: '9. Summary & Key Takeaways', style: 'sectionHeader' },
+                    ...formatReportContent(data.keyTakeaways, '#333333'),
                     
                     // Footer Info
                     { 
@@ -864,10 +890,13 @@
             }
         }
 
-        // --- Chatbot Logic (Unchanged) ---
+        // --- Chatbot Logic (Updated for FAB state) ---
         function toggleChat() {
             const chatWindow = document.getElementById('chat-window');
+            const chatContainer = document.getElementById('chatbot-container');
+            
             chatWindow.classList.toggle('closed');
+            chatContainer.classList.toggle('chat-open'); // New class to handle FAB transition
         }
         
         function addMessageToChat(text, sender) {

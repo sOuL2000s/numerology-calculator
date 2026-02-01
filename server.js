@@ -211,33 +211,40 @@ app.post('/api/numerology-profile', async (req, res) => {
 
             // --- NEW CONTEXT INJECTION ---
             **Detailed Personality Coordinates (INSTRUCTIVE DATA):**
-            *   Birth Number (${birthNo}) Core: ${birthProfile.core} (Focus: ${birthProfile.focus})
-            *   Life Path Number (${lifePathNo}) Core: ${missionProfile.core} (Focus: ${missionProfile.focus})
+            *   Birth Number (${birthNo}) Core: ${birthProfile.core} (Focus: ${birthProfile.focus}) (Challenge: ${birthProfile.challenge})
+            *   Life Path Number (${lifePathNo}) Core: ${missionProfile.core} (Focus: ${missionProfile.focus}) (Challenge: ${missionProfile.challenge})
+            *   Destiny Number (${destinyNo}) Core: ${destinyProfile.core} (Focus: ${destinyProfile.focus})
             *   Numerical Group Synergy (Birth/Mission): ${birthProfile.group} meets ${missionProfile.group}
 
             **Instructions for JSON Content Generation:**
             1.  **title:** Must be the Archetype as the main title (e.g., "The ${archetype} Destiny Profile").
-            2.  **lifePathSummary:** Explain the meaning of the combined Archetype (${archetype}). **CRITICAL:** Analyze the synergy or friction between the Birth Number's group (${birthProfile.group}) and the Life Path Number's group (${missionProfile.group}). Detail how the Birth Number's core drive (${birthProfile.core}) aids or frustrates the Life Path's mission (${missionProfile.core}).
-            3.  **vedicFusion:** Provide a deep, detailed analysis (Jyotish Focus) of how the governing planets—${birthPlanet.planet} (Personality) and ${missionPlanet.planet} (Mission)—flavor the user's life according to Vedic wisdom. Discuss core karmic themes and disposition (Prakriti) imparted by these two Grahas.
-            4.  **strengths:** Identify three key positive personality traits and inherent talents resulting from this specific fusion. Ensure these align with the positive core attributes listed in the coordinates section above. Use a markdown list.
-            5.  **challenges:** Identify three key potential struggles, pitfalls, or growth areas. **CRITICAL:** Ensure the common "weak side" of the Birth Number (e.g., "${birthProfile.challenge}") and Life Path Number (e.g., "${missionProfile.challenge}") are directly addressed as potential struggles or internal conflicts. Use a markdown list.
-            6.  **remedies:** Provide three specific, practical Vedic remedial suggestions (Upayes) based on the combined planetary influences (e.g., mantra recommendations, specific days/colors to utilize, offerings, or activities). Mention utilizing their Planetary Day of Strength (${birthPlanet.day}). Use a markdown list.
-            7.  **destinyExplanation:** Provide a detailed explanation of the Destiny Number (${destinyNo}) and its planetary ruler. **CRITICAL:** Use the Destiny Profile's core traits (${destinyProfile.core}) to describe the ultimate life expression and impact on the world.
+            2.  **lifePathSummary:** (Core Identity) Explain the fundamental meaning of the Birth/Life Path Archetype (${archetype}). Detail the synergy/friction between the groups (${birthProfile.group} vs ${missionProfile.group}).
+            3.  **vedicFusion:** (Vedic Insight) Detailed Jyotish analysis of the governing planets—${birthPlanet.planet} (Personality) and ${missionPlanet.planet} (Mission)—discussing core karmic themes, disposition, and how the energies manifest.
+            4.  **psychologicalProfile:** (Personality & Psychological Profile) A detailed analysis covering key strengths, emotional patterns, thinking style, and the inherent conflict/weakness derived from both Birth (${birthProfile.challenge}) and Life Path (${missionProfile.challenge}) numbers. Use markdown lists to structure strengths and challenges.
+            5.  **relationshipAnalysis:** (Love & Relationships) Analyze the user's love style, emotional needs, and core relationship challenges derived from the combined numbers. Suggest ideal compatibility traits.
+            6.  **careerFinancialOutlook:** (Career & Money) Based on the vocation (${career}), analyze the user's natural work style (leader/strategist/creator), money mindset, and earning potential. Provide practical, high-level career guidance.
+            7.  **spiritualPurpose:** (Spiritual Growth & Purpose) Discuss the user's unique Karmic lessons and Soul Mission according to their numbers. Focus on inner healing themes.
+            8.  **destinyExplanation:** (Ultimate Expression) Explain the Destiny Number (${destinyNo}) using its core traits (${destinyProfile.core}) to describe the ultimate life expression and impact on the world (the Name Vibe).
+            9.  **remediesGuidance:** (Action Steps) Provide specific, practical remedies (Upayes) based on the combined planetary influences. Mention utilizing their Planetary Day of Strength (${birthPlanet.day}). Conclude with simple do's and don'ts. Use a markdown list.
+            10. **keyTakeaways:** (Summary Snapshot) Provide a brief, bulleted list summary (1-2 sentences per point) covering: Top Strength, Biggest Growth Area, and Current Life Theme. Use a markdown list.
         `;
 
-        // Define the JSON structure for the Gemini API call
+        // Define the JSON structure for the Gemini API call (EXPANDED)
         const numerologySchema = {
             type: "object",
             properties: {
                 title: { type: "string" },
                 lifePathSummary: { type: "string" },
                 vedicFusion: { type: "string" },
-                strengths: { type: "string" },
-                challenges: { type: "string" },
-                remedies: { type: "string" },
-                destinyExplanation: { type: "string" }
+                psychologicalProfile: { type: "string" }, // NEW
+                relationshipAnalysis: { type: "string" }, // NEW
+                careerFinancialOutlook: { type: "string" }, // NEW
+                spiritualPurpose: { type: "string" }, // NEW
+                remediesGuidance: { type: "string" }, // RENAMED/EXPANDED
+                keyTakeaways: { type: "string" }, // NEW
+                destinyExplanation: { type: "string" } // Kept, but moved to the end of the schema definition
             },
-            required: ["title", "lifePathSummary", "vedicFusion", "strengths", "challenges", "remedies", "destinyExplanation"]
+            required: ["title", "lifePathSummary", "vedicFusion", "psychologicalProfile", "relationshipAnalysis", "careerFinancialOutlook", "spiritualPurpose", "remediesGuidance", "destinyExplanation", "keyTakeaways"]
         };
 
 
